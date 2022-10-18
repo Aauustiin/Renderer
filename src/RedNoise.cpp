@@ -3,6 +3,7 @@
 #include <Utils.h>
 #include <fstream>
 #include <vector>
+#include <unordered_map>
 
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
@@ -16,19 +17,38 @@
 #define WIDTH 320
 #define HEIGHT 240
 
-std::vector<ModelTriangle> readOBJ(std::string &filepath, float scaleFactor = 1) {
+std::unordered_map<std::string, Colour> readMTL(std::string& filepath) {
+	std::unordered_map<std::string, Colour> result = {};
 	std::ifstream inputStream(filepath, std::ifstream::binary);
 	std::string nextLine;
-    std::getline(inputStream, nextLine); // The mtl bit at the top
+	while (!inputStream.eof()) {
+		std::getline(inputStream, nextLine); // Name
+		auto lineContents = split(nextLine, ' ');
+		std::string name = lineContents[1];
+		std::getline(inputStream, nextLine); // Value
+		lineContents = split(nextLine, ' ');
+		int r = std::round(std::stof(lineContents[1]) * 255);
+		int g = std::round(std::stof(lineContents[2]) * 255);
+		int b = std::round(std::stof(lineContents[3]) * 255);
+		Colour colour = Colour(r, g, b);
+		result[name] = colour;
+		std::getline(inputStream, nextLine); // Empty
+	}
+	return result;
+}
+
+std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std::string, Colour> palette, float scaleFactor = 1) {
+	std::ifstream inputStream(filepath, std::ifstream::binary);
+	std::string nextLine;
+	std::getline(inputStream, nextLine); // The mtl bit at the top
 	std::vector<ModelTriangle> result = {};
 
 	while (!inputStream.eof()) {
 		std::getline(inputStream, nextLine); // Empty
 		std::getline(inputStream, nextLine); // Face Name
 		std::getline(inputStream, nextLine); // Colour
-		//auto lineContents = split(nextLine, ' ');
-		//Colour c = Colour(lineContents[1]); //??
-		//std::cout << lineContents[1] << std::endl;
+		auto lineContents = split(nextLine, ' ');
+		Colour c = palette[lineContents[1]];
 
 		std::vector <glm::vec3> vertices = {};
 		std::getline(inputStream, nextLine);
@@ -46,7 +66,7 @@ std::vector<ModelTriangle> readOBJ(std::string &filepath, float scaleFactor = 1)
 			int faceIndexA = std::stoi(lineContents[1]) % vertices.size();
 			int faceIndexB = std::stoi(lineContents[2]) % vertices.size();
 			int faceIndexC = std::stoi(lineContents[3]) % vertices.size();
-			result.push_back(ModelTriangle(vertices[faceIndexA], vertices[faceIndexB], vertices[faceIndexC], Colour(255, 255, 255)));
+			result.push_back(ModelTriangle(vertices[faceIndexA], vertices[faceIndexB], vertices[faceIndexC], c));
 			std::getline(inputStream, nextLine);
 		}
 	}
@@ -54,12 +74,6 @@ std::vector<ModelTriangle> readOBJ(std::string &filepath, float scaleFactor = 1)
 	inputStream.close();
 	return result;
 }
-
-
-// Get all vertices for a given thing
-// Go through faces for a given thing
-// for each face, get the vertex index, mod it by number of vertices, access vertices and make thingy
-
 
 std::vector<float> interpolateFloat(float from, float to, int numberOfValues) {
 	float step = (to - from) / (numberOfValues - 1);
@@ -97,7 +111,7 @@ std::vector<glm::vec3> interpolateVec3(glm::vec3 from, glm::vec3 to, int numberO
 std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 	std::vector<CanvasPoint> result;
 	if ((from.x == to.x) && (from.y == to.y)) {
-		result = {from};
+		result = { from };
 	}
 	else {
 		float xDiff = to.x - from.x;
@@ -112,7 +126,7 @@ std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 	return result;
 }
 
-void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow &window) {
+void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow& window) {
 	std::vector<CanvasPoint> line = getLine(from, to);
 	uint32_t c = (255 << 24) + (int(colour.red) << 16) + (int(colour.green) << 8) + int(colour.blue);
 	for (int i = 0; i < line.size(); i++) {
@@ -120,13 +134,13 @@ void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow &wi
 	}
 }
 
-void drawStrokedTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow &window) {
+void drawStrokedTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window) {
 	drawLine(triangle.v0(), triangle.v1(), colour, window);
 	drawLine(triangle.v1(), triangle.v2(), colour, window);
 	drawLine(triangle.v0(), triangle.v2(), colour, window);
 }
 
-void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow &window) {
+void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window) {
 	// Vertices are sorted such that v0 has the lowest y value, meaning it's the highest.
 	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
 	if (triangle.v1().y > triangle.v2().y) std::swap(triangle.v1(), triangle.v2());
@@ -165,7 +179,7 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow &w
 	}
 }
 
-void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWindow &window) {
+void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWindow& window) {
 	// Vertices are sorted such that v0 has the lowest y value, meaning it's the highest.
 	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
 	if (triangle.v1().y > triangle.v2().y) std::swap(triangle.v1(), triangle.v2());
@@ -216,7 +230,7 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 	}
 }
 
-void drawRedNoise(DrawingWindow &window) {
+void drawRedNoise(DrawingWindow& window) {
 	window.clearPixels();
 	for (size_t y = 0; y < window.height; y++) {
 		for (size_t x = 0; x < window.width; x++) {
@@ -277,7 +291,7 @@ Colour getRandomColour() {
 	return Colour(r, g, b);
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window) {
+void handleEvent(SDL_Event event, DrawingWindow& window) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
@@ -294,13 +308,14 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 			drawFilledTriangle(tri, c, window);
 			drawStrokedTriangle(tri, Colour(255, 255, 255), window);
 		}
-	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+	}
+	else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		window.savePPM("output.ppm");
 		window.saveBMP("output.bmp");
 	}
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
 
@@ -315,8 +330,11 @@ int main(int argc, char *argv[]) {
 	drawTexturedTriangle(triangle, texture, window);
 	drawStrokedTriangle(triangle, Colour(255, 255, 255), window);
 
-	std::string filepath = "cornell-box.obj";
-	std::vector<ModelTriangle> bub = readOBJ(filepath);
+	std::string mtlFilepath = "cornell-box.mtl";
+	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
+	std::string objFilepath = "cornell-box.obj";
+	std::vector<ModelTriangle> bub = readOBJ(objFilepath, palette);
+
 	for (int i = 0; i < bub.size(); i++) {
 		std::cout << bub[i] << std::endl;
 	}
