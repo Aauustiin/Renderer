@@ -17,6 +17,26 @@
 #define WIDTH 320
 #define HEIGHT 240
 
+CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos, float focalLength, DrawingWindow &window) {
+	glm::vec3 cameraSpaceVertex = vertexPos - cameraPos;
+	//glm::vec3 cameraSpaceVertex = vertexPos;
+
+	float u = focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2);
+	float v = focalLength * (cameraSpaceVertex.y / cameraSpaceVertex.z) + (window.height / 2);
+	return CanvasPoint(u, v);
+}
+
+void pointcloudRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow &window) {
+	uint32_t white = (255 << 24) + (255 << 16) + (255 << 8) + 255;
+
+	for (int i = 0; i < model.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			CanvasPoint point = getCanvasIntersectionPoint(cameraPos, model[i].vertices[j], focalLength, window);
+			window.setPixelColour(point.x, point.y, white);
+		}
+	}
+}
+
 std::unordered_map<std::string, Colour> readMTL(std::string& filepath) {
 	std::unordered_map<std::string, Colour> result = {};
 	std::ifstream inputStream(filepath, std::ifstream::binary);
@@ -38,37 +58,58 @@ std::unordered_map<std::string, Colour> readMTL(std::string& filepath) {
 }
 
 std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std::string, Colour> palette, float scaleFactor = 1) {
+
 	std::ifstream inputStream(filepath, std::ifstream::binary);
 	std::string nextLine;
-	std::getline(inputStream, nextLine); // The mtl bit at the top
+	std::vector<glm::vec3> vertices = {};
+	std::vector<std::array<int, 3>> faces = {};
+	std::vector<Colour> colours = {};
 	std::vector<ModelTriangle> result = {};
 
+	std::getline(inputStream, nextLine); // The mtl bit at the top - should probably use this to reference mtl file rather than pass it in
+
+	std::getline(inputStream, nextLine); // Empty
+
 	while (!inputStream.eof()) {
-		std::getline(inputStream, nextLine); // Empty
+
+		// Each loop is one block of stuff.
+
 		std::getline(inputStream, nextLine); // Face Name
+
 		std::getline(inputStream, nextLine); // Colour
 		auto lineContents = split(nextLine, ' ');
 		Colour c = palette[lineContents[1]];
 
-		std::vector <glm::vec3> vertices = {};
+		// Get ALL vertices
 		std::getline(inputStream, nextLine);
 		while (nextLine[0] == 'v') {
 			auto lineContents = split(nextLine, ' ');
-			vertices.push_back(glm::vec3(std::stof(lineContents[1]) * scaleFactor, std::stof(lineContents[2]) * scaleFactor, std::stof(lineContents[3]) * scaleFactor));
+			float x = std::stof(lineContents[1]) * scaleFactor;
+			float y = std::stof(lineContents[2]) * scaleFactor;
+			float z = std::stof(lineContents[3]) * scaleFactor;
+			vertices.push_back(glm::vec3(x, y, z));
 			std::getline(inputStream, nextLine);
 		}
+
+		// Get ALL faces
 		std::getline(inputStream, nextLine);
 		while (nextLine[0] == 'f') {
 			auto lineContents = split(nextLine, ' ');
 			lineContents[1][lineContents[1].size() - 1] = '\0';
 			lineContents[2][lineContents[2].size() - 1] = '\0';
 			lineContents[3][lineContents[3].size() - 2] = '\0';
-			int faceIndexA = std::stoi(lineContents[1]) % vertices.size();
-			int faceIndexB = std::stoi(lineContents[2]) % vertices.size();
-			int faceIndexC = std::stoi(lineContents[3]) % vertices.size();
-			result.push_back(ModelTriangle(vertices[faceIndexA], vertices[faceIndexB], vertices[faceIndexC], c));
+			int faceIndexA = std::stoi(lineContents[1]);
+			int faceIndexB = std::stoi(lineContents[2]);
+			int faceIndexC = std::stoi(lineContents[3]);
+			faces.push_back({ faceIndexA, faceIndexB, faceIndexC });
+			colours.push_back(c);
 			std::getline(inputStream, nextLine);
 		}
+	}
+
+	// Go through the data we've collected and create Model Triangles.
+	for (int i = 0; i < faces.size(); i++) {
+		result.push_back(ModelTriangle(vertices[faces[i][0] - 1], vertices[faces[i][1] - 1], vertices[faces[i][2] - 1], colours[i]));
 	}
 
 	inputStream.close();
@@ -230,6 +271,19 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 	}
 }
 
+void drawTexturedTriangleExample(DrawingWindow& window) {
+	CanvasPoint a = CanvasPoint(160, 10);
+	a.texturePoint = TexturePoint(195, 5);
+	CanvasPoint b = CanvasPoint(300, 230);
+	b.texturePoint = TexturePoint(395, 380);
+	CanvasPoint c = CanvasPoint(10, 150);
+	c.texturePoint = TexturePoint(65, 330);
+	CanvasTriangle triangle = CanvasTriangle(a, b, c);
+	TextureMap texture = TextureMap("texture.ppm");
+	drawTexturedTriangle(triangle, texture, window);
+	drawStrokedTriangle(triangle, Colour(255, 255, 255), window);
+}
+
 void drawRedNoise(DrawingWindow& window) {
 	window.clearPixels();
 	for (size_t y = 0; y < window.height; y++) {
@@ -319,25 +373,18 @@ int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
 
-	CanvasPoint a = CanvasPoint(160, 10);
-	a.texturePoint = TexturePoint(195, 5);
-	CanvasPoint b = CanvasPoint(300, 230);
-	b.texturePoint = TexturePoint(395, 380);
-	CanvasPoint c = CanvasPoint(10, 150);
-	c.texturePoint = TexturePoint(65, 330);
-	CanvasTriangle triangle = CanvasTriangle(a, b, c);
-	TextureMap texture = TextureMap("texture.ppm");
-	drawTexturedTriangle(triangle, texture, window);
-	drawStrokedTriangle(triangle, Colour(255, 255, 255), window);
-
+	glm::vec3 initialCameraPosition = { 0, 0, 4 };
+	float focalLength = 4;
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
-	std::vector<ModelTriangle> bub = readOBJ(objFilepath, palette);
+	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette);
 
-	for (int i = 0; i < bub.size(); i++) {
-		std::cout << bub[i] << std::endl;
+	for (int i = 0; i < cornellBox.size(); i++) {
+		std::cout << cornellBox[i] << std::endl;
 	}
+
+	pointcloudRender(cornellBox, initialCameraPosition, focalLength, window);
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window);
