@@ -1,39 +1,60 @@
-#include <CanvasTriangle.h>
-#include <DrawingWindow.h>
 #include <Utils.h>
 #include <fstream>
 #include <vector>
 #include <unordered_map>
 
-#include <glm/vec3.hpp>
-#include <glm/mat3x3.hpp>
+#include <CanvasTriangle.h>
 #include <CanvasPoint.h>
+#include <DrawingWindow.h>
 #include <Colour.h>
 #include <TextureMap.h>
 #include <ModelTriangle.h>
 
-#include <glm/glm.hpp>
+#include <glm/vec3.hpp>
 
 #define WIDTH 320
 #define HEIGHT 240
 
+void drawStrokedTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window);
+void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window);
+
 CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos, float focalLength, DrawingWindow &window) {
 	glm::vec3 cameraSpaceVertex = vertexPos - cameraPos;
-	//glm::vec3 cameraSpaceVertex = vertexPos;
 
+	// Formula taken from the worksheet.
 	float u = focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2);
 	float v = focalLength * (cameraSpaceVertex.y / cameraSpaceVertex.z) + (window.height / 2);
-	return CanvasPoint(u, v);
+	return CanvasPoint(std::round(u), std::round(v));
 }
 
 void pointcloudRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow &window) {
 	uint32_t white = (255 << 24) + (255 << 16) + (255 << 8) + 255;
-
-	for (int i = 0; i < model.size(); i++) {
-		for (int j = 0; j < 3; j++) {
-			CanvasPoint point = getCanvasIntersectionPoint(cameraPos, model[i].vertices[j], focalLength, window);
-			window.setPixelColour(point.x, point.y, white);
+	
+	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
+		for (int j = 0; j < 3; j++) { // For each vertex in the triangle...
+			CanvasPoint point = getCanvasIntersectionPoint(cameraPos, model[i].vertices[j], focalLength, window); // Get intersection point...
+			window.setPixelColour(point.x, point.y, white); // Set colour
 		}
+	}
+}
+
+void wireframeRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window) {
+	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
+		CanvasPoint va = getCanvasIntersectionPoint(cameraPos, model[i].vertices[0], focalLength, window);
+		CanvasPoint vb = getCanvasIntersectionPoint(cameraPos, model[i].vertices[1], focalLength, window);
+		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window);
+		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
+		drawStrokedTriangle(triangle, Colour(255, 255, 255), window);
+	}
+}
+
+void rasterisedRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window) {
+	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
+		CanvasPoint va = getCanvasIntersectionPoint(cameraPos, model[i].vertices[0], focalLength, window);
+		CanvasPoint vb = getCanvasIntersectionPoint(cameraPos, model[i].vertices[1], focalLength, window);
+		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window);
+		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
+		drawFilledTriangle(triangle, model[i].colour, window);
 	}
 }
 
@@ -80,7 +101,7 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 		auto lineContents = split(nextLine, ' ');
 		Colour c = palette[lineContents[1]];
 
-		// Get ALL vertices
+		// Get vertices
 		std::getline(inputStream, nextLine);
 		while (nextLine[0] == 'v') {
 			auto lineContents = split(nextLine, ' ');
@@ -91,8 +112,7 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 			std::getline(inputStream, nextLine);
 		}
 
-		// Get ALL faces
-		std::getline(inputStream, nextLine);
+		// Get faces
 		while (nextLine[0] == 'f') {
 			auto lineContents = split(nextLine, ' ');
 			lineContents[1][lineContents[1].size() - 1] = '\0';
@@ -186,7 +206,6 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
 	if (triangle.v1().y > triangle.v2().y) std::swap(triangle.v1(), triangle.v2());
 	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
-
 	std::vector<CanvasPoint> topToMiddle = getLine(triangle.v0(), triangle.v1());
 	std::vector<CanvasPoint> middleToBottom = getLine(triangle.v1(), triangle.v2());
 	std::vector<CanvasPoint> topToBottom = getLine(triangle.v0(), triangle.v2());
@@ -201,10 +220,12 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 		for (int j = 0; j < topToMiddle.size(); j++) {
 			if (topToMiddle[j].y == i) point1 = topToMiddle[j];
 		}
+		if (point1.x < 10) std::cout << point1 << std::endl;
 		CanvasPoint point2;
 		for (int j = 0; j < topToBottom.size(); j++) {
 			if (topToBottom[j].y == i) point2 = topToBottom[j];
 		}
+		if (point2.x < 10) std::cout << point2 << std::endl;
 		drawLine(point1, point2, colour, window);
 	}
 	for (int i = middle.y; i <= triangle.v2().y; i++) {
@@ -212,10 +233,12 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 		for (int j = 0; j < middleToBottom.size(); j++) {
 			if (middleToBottom[j].y == i) point1 = middleToBottom[j];
 		}
+		if (point1.x < 10) std::cout << point1 << std::endl;
 		CanvasPoint point2;
 		for (int j = 0; j < topToBottom.size(); j++) {
 			if (topToBottom[j].y == i) point2 = topToBottom[j];
 		}
+		if (point2.x < 10) std::cout << point2 << std::endl;
 		drawLine(point1, point2, colour, window);
 	}
 }
@@ -374,17 +397,28 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	glm::vec3 initialCameraPosition = { 0, 0, 4 };
-	float focalLength = 4;
+	float focalLength = 50;
+
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette);
+	rasterisedRender(cornellBox, initialCameraPosition, focalLength, window);
 
-	for (int i = 0; i < cornellBox.size(); i++) {
-		std::cout << cornellBox[i] << std::endl;
-	}
-
-	pointcloudRender(cornellBox, initialCameraPosition, focalLength, window);
+	// The first model triangle is drawn properly, but the second thinks it's last vertex is in the top left corner??
+	//for (int i = 0; i < 2; i++) {
+	//	CanvasPoint va = getCanvasIntersectionPoint(initialCameraPosition, cornellBox[i].vertices[0], focalLength, window);
+	//	va.x = std::round(va.x);
+	//	va.y = std::round(va.y);
+	//	CanvasPoint vb = getCanvasIntersectionPoint(initialCameraPosition, cornellBox[i].vertices[1], focalLength, window);
+	//	vb.x = std::round(vb.x);
+	//	vb.y = std::round(vb.y);
+	//	CanvasPoint vc = getCanvasIntersectionPoint(initialCameraPosition, cornellBox[i].vertices[2], focalLength, window);
+	//	vc.x = std::round(vc.x);
+	//	vc.y = std::round(vc.y);
+	//	CanvasTriangle tri = CanvasTriangle(va, vb, vc);
+	//	drawFilledTriangle(tri, cornellBox[i].colour, window);
+	//}
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window);

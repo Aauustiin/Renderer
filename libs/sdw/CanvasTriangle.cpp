@@ -25,6 +25,6 @@ CanvasPoint &CanvasTriangle::operator[](size_t i) {
 }
 
 std::ostream &operator<<(std::ostream &os, const CanvasTriangle &triangle) {
-	os << triangle[0] << triangle[1] << triangle[2];
+	os << triangle[0] << ", " << triangle[1] << ", " << triangle[2];
 	return os;
 }
