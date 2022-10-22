@@ -26,7 +26,7 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos,
 	// Formula taken from the worksheet.
 	float u = focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2);
 	float v = focalLength * (cameraSpaceVertex.y / cameraSpaceVertex.z) + (window.height / 2);
-	return CanvasPoint(std::round(u), std::round(v));
+	return CanvasPoint(std::round(u), std::round(v), cameraSpaceVertex.z);
 }
 
 void pointcloudRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow &window) {
@@ -160,9 +160,10 @@ std::vector<CanvasPoint> interpolateCanvasPoint(CanvasPoint from, CanvasPoint to
 	std::vector<float> tpXs = interpolateFloat(from.texturePoint.x, to.texturePoint.x, numberOfValues);
 	std::vector<float> ys = interpolateFloat(from.y, to.y, numberOfValues);
 	std::vector<float> tpYs = interpolateFloat(from.texturePoint.y, to.texturePoint.y, numberOfValues);
+	std::vector<float> depths = interpolateFloat(from.depth, to.depth, numberOfValues);
 	std::vector<CanvasPoint> res(numberOfValues);
 	for (int i = 0; i < numberOfValues; i++) {
-		res[i] = CanvasPoint(xs[i], ys[i]);
+		res[i] = CanvasPoint(xs[i], ys[i], depths[i]);
 		res[i].texturePoint = TexturePoint(std::round(tpXs[i]), std::round(tpYs[i]));
 	}
 	return res;
@@ -201,7 +202,7 @@ void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow& wi
 	std::vector<CanvasPoint> line = getLine(from, to);
 	uint32_t c = (255 << 24) + (int(colour.red) << 16) + (int(colour.green) << 8) + int(colour.blue);
 	for (int i = 0; i < line.size(); i++) {
-		window.setPixelColour(line[i].x, line[i].y, c);
+		window.setPixelColour(line[i].x, line[i].y, line[i].depth, c);
 	}
 }
 
