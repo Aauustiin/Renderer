@@ -20,8 +20,8 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 
 CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos, float focalLength, DrawingWindow &window) {
 	glm::vec3 cameraSpaceVertex = vertexPos - cameraPos;
-	cameraSpaceVertex.x *= 180.0f;
-	cameraSpaceVertex.y *= 180.0f;
+	cameraSpaceVertex.x *= window.scale;
+	cameraSpaceVertex.y *= window.scale;
 
 	// Formula taken from the worksheet.
 	float u = focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2);
@@ -129,17 +129,13 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 		}
 	}
 
-	 // Model is flipped horizontally because our coordinate space is different.
+	// Model is flipped horizontally because our coordinate space is different.
+	// Scale factor is applied.
 	for (int i = 0; i < vertices.size(); i++) {
 		vertices[i].x *= -scaleFactor;
 		vertices[i].y *= scaleFactor;
 		vertices[i].z *= scaleFactor;
 	}
-
-	// Scale model by the scale factor.
-	//for (int i = 0; i < vertices.size(); i++) {
-	//	vertices[i] *= scaleFactor;
-	//}
 
 	// Go through the data we've collected and create Model Triangles.
 	for (int i = 0; i < faces.size(); i++) {
@@ -403,7 +399,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 }
 
 int main(int argc, char* argv[]) {
-	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
+	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, 180.0f, false);
 	SDL_Event event;
 
 	glm::vec3 initialCameraPosition = { 0, 0, 4 };

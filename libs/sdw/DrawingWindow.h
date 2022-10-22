@@ -10,6 +10,7 @@ class DrawingWindow {
 public:
 	size_t width;
 	size_t height;
+	float scale;
 
 private:
 	SDL_Window *window;
@@ -19,7 +20,7 @@ private:
 
 public:
 	DrawingWindow();
-	DrawingWindow(int w, int h, bool fullscreen);
+	DrawingWindow(int w, int h, float s, bool fullscreen);
 	void renderFrame();
 	void savePPM(const std::string &filename) const;
 	void saveBMP(const std::string &filename) const;

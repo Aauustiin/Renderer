@@ -4,7 +4,7 @@
 
 DrawingWindow::DrawingWindow() {}
 
-DrawingWindow::DrawingWindow(int w, int h, bool fullscreen) : width(w), height(h), pixelBuffer(w * h) {
+DrawingWindow::DrawingWindow(int w, int h, float s, bool fullscreen) : width(w), height(h), scale(s), pixelBuffer(w * h) {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) printMessageAndQuit("Could not initialise SDL: ", SDL_GetError());
 	uint32_t flags = SDL_WINDOW_OPENGL;
 	if (fullscreen) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
