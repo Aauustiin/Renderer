@@ -20,6 +20,8 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 
 CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos, float focalLength, DrawingWindow &window) {
 	glm::vec3 cameraSpaceVertex = vertexPos - cameraPos;
+	cameraSpaceVertex.x *= 180.0f;
+	cameraSpaceVertex.y *= 180.0f;
 
 	// Formula taken from the worksheet.
 	float u = focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2);
@@ -105,9 +107,9 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 		std::getline(inputStream, nextLine);
 		while (nextLine[0] == 'v') {
 			auto lineContents = split(nextLine, ' ');
-			float x = std::stof(lineContents[1]) * scaleFactor;
-			float y = std::stof(lineContents[2]) * scaleFactor;
-			float z = std::stof(lineContents[3]) * scaleFactor;
+			float x = std::stof(lineContents[1]);
+			float y = std::stof(lineContents[2]);
+			float z = std::stof(lineContents[3]);
 			vertices.push_back(glm::vec3(x, y, z));
 			std::getline(inputStream, nextLine);
 		}
@@ -126,6 +128,18 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 			std::getline(inputStream, nextLine);
 		}
 	}
+
+	 // Model is flipped horizontally because our coordinate space is different.
+	for (int i = 0; i < vertices.size(); i++) {
+		vertices[i].x *= -scaleFactor;
+		vertices[i].y *= scaleFactor;
+		vertices[i].z *= scaleFactor;
+	}
+
+	// Scale model by the scale factor.
+	//for (int i = 0; i < vertices.size(); i++) {
+	//	vertices[i] *= scaleFactor;
+	//}
 
 	// Go through the data we've collected and create Model Triangles.
 	for (int i = 0; i < faces.size(); i++) {
@@ -220,12 +234,10 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 		for (int j = 0; j < topToMiddle.size(); j++) {
 			if (topToMiddle[j].y == i) point1 = topToMiddle[j];
 		}
-		if (point1.x < 10) std::cout << point1 << std::endl;
 		CanvasPoint point2;
 		for (int j = 0; j < topToBottom.size(); j++) {
 			if (topToBottom[j].y == i) point2 = topToBottom[j];
 		}
-		if (point2.x < 10) std::cout << point2 << std::endl;
 		drawLine(point1, point2, colour, window);
 	}
 	for (int i = middle.y; i <= triangle.v2().y; i++) {
@@ -233,12 +245,10 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 		for (int j = 0; j < middleToBottom.size(); j++) {
 			if (middleToBottom[j].y == i) point1 = middleToBottom[j];
 		}
-		if (point1.x < 10) std::cout << point1 << std::endl;
 		CanvasPoint point2;
 		for (int j = 0; j < topToBottom.size(); j++) {
 			if (topToBottom[j].y == i) point2 = topToBottom[j];
 		}
-		if (point2.x < 10) std::cout << point2 << std::endl;
 		drawLine(point1, point2, colour, window);
 	}
 }
@@ -397,28 +407,13 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	glm::vec3 initialCameraPosition = { 0, 0, 4 };
-	float focalLength = 50;
+	float focalLength = 2;
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
-	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette);
+	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
 	rasterisedRender(cornellBox, initialCameraPosition, focalLength, window);
-
-	// The first model triangle is drawn properly, but the second thinks it's last vertex is in the top left corner??
-	//for (int i = 0; i < 2; i++) {
-	//	CanvasPoint va = getCanvasIntersectionPoint(initialCameraPosition, cornellBox[i].vertices[0], focalLength, window);
-	//	va.x = std::round(va.x);
-	//	va.y = std::round(va.y);
-	//	CanvasPoint vb = getCanvasIntersectionPoint(initialCameraPosition, cornellBox[i].vertices[1], focalLength, window);
-	//	vb.x = std::round(vb.x);
-	//	vb.y = std::round(vb.y);
-	//	CanvasPoint vc = getCanvasIntersectionPoint(initialCameraPosition, cornellBox[i].vertices[2], focalLength, window);
-	//	vc.x = std::round(vc.x);
-	//	vc.y = std::round(vc.y);
-	//	CanvasTriangle tri = CanvasTriangle(va, vb, vc);
-	//	drawFilledTriangle(tri, cornellBox[i].colour, window);
-	//}
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window);
