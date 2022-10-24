@@ -129,7 +129,7 @@ std::vector<CanvasPoint> interpolate(CanvasPoint from, CanvasPoint to, int numbe
 	std::vector<CanvasPoint> res(numberOfValues);
 	for (int i = 0; i < numberOfValues; i++) {
 		res[i] = CanvasPoint(xs[i], ys[i], depths[i]);
-		res[i].texturePoint = TexturePoint(std::round(tpXs[i]), std::round(tpYs[i]));
+		res[i].texturePoint = TexturePoint(tpXs[i], tpYs[i]);
 	}
 	return res;
 }
@@ -157,10 +157,6 @@ std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 		float yDiff = to.y - from.y;
 		int stepNum = std::max(abs(xDiff), abs(yDiff)) + 1;
 		result = interpolate(from, to, stepNum);
-		for (int i = 0; i < result.size(); i++) {
-			result[i].x = std::round(result[i].x);
-			result[i].y = std::round(result[i].y);
-		}
 	}
 	return result;
 }
@@ -173,7 +169,7 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos,
 	// Formula taken from the worksheet.
 	float u = focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2);
 	float v = focalLength * (cameraSpaceVertex.y / cameraSpaceVertex.z) + (window.height / 2);
-	return CanvasPoint(std::round(u), std::round(v), cameraSpaceVertex.z);
+	return CanvasPoint(u, v, cameraSpaceVertex.z);
 }
 
 // DRAWING PRIMATIVES

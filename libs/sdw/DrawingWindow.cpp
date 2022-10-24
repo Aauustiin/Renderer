@@ -88,7 +88,7 @@ void DrawingWindow::setPixelColour(size_t x, size_t y, float depth, uint32_t col
 	if ((x >= width) || (y >= height)) {
 		std::cout << x << "," << y << " not on visible screen area" << std::endl;
 	}
-	else if (inverseDepth <= depthBuffer[(y * width) + x]) {
+	else if (inverseDepth < depthBuffer[(y * width) + x]) {
 		// For some reason my z direction is not what I would expect it to be? Z increases as you get closer to camera? 
 		pixelBuffer[(y * width) + x] = colour;
 		depthBuffer[(y * width) + x] = inverseDepth;
