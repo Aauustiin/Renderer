@@ -103,6 +103,7 @@ uint32_t DrawingWindow::getPixelColour(size_t x, size_t y) {
 }
 
 void DrawingWindow::clearPixels() {
+	std::fill(depthBuffer.begin(), depthBuffer.end(), 0);
 	std::fill(pixelBuffer.begin(), pixelBuffer.end(), 0);
 }
 

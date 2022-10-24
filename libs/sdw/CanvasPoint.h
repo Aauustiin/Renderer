@@ -4,8 +4,8 @@
 #include <iostream>
 
 struct CanvasPoint {
-	float x{};
-	float y{};
+	int x{};
+	int y{};
 	float depth{};
 	float brightness{};
 	TexturePoint texturePoint{};

@@ -16,7 +16,7 @@
 
 #define WIDTH 320
 #define HEIGHT 240
-#define IMAGE_PLANE_SCALE 180
+#define IMAGE_PLANE_SCALE 90
 
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window, bool useDepth = true);
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window, bool useDepth = true);
@@ -210,6 +210,7 @@ void rasterisedRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, flo
 		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window);
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
 		drawFilledTriangle(triangle, model[i].colour, window);
+		//drawStrokedTriangle(triangle, model[i].colour, window);
 	}
 }
 
@@ -310,7 +311,7 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 
 // MAIN LOOP
 
-void handleEvent(SDL_Event event, DrawingWindow& window) {
+void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
@@ -327,6 +328,42 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			drawFilledTriangle(tri, c, window, false);
 			drawStrokedTriangle(tri, Colour(255, 255, 255), window, false);
 		}
+		else if (event.key.keysym.sym == SDLK_a) { // Translate Camera Left
+			// Get translation amount
+			glm::vec3 translation = glm::vec3(0.1, 0, 0);
+			// Translate camera
+			*cameraPosPtr = *cameraPosPtr + translation;
+		}
+		else if (event.key.keysym.sym == SDLK_d) { // Translate Camera Right
+			// Get translation amount
+			glm::vec3 translation = glm::vec3(-0.1, 0, 0);
+			// Translate camera
+			*cameraPosPtr = *cameraPosPtr + translation;
+		}
+		else if (event.key.keysym.sym == SDLK_w) { // Translate Camera Forward
+			// Get translation amount
+			glm::vec3 translation = glm::vec3(0, 0, -0.1);
+			// Translate camera
+			*cameraPosPtr = *cameraPosPtr + translation;
+		}
+		else if (event.key.keysym.sym == SDLK_s) { // Translate Camera Back
+			// Get translation amount
+			glm::vec3 translation = glm::vec3(0, 0, 0.1);
+			// Translate camera
+			*cameraPosPtr = *cameraPosPtr + translation;
+		}
+		else if (event.key.keysym.sym == SDLK_SPACE) { // Translate Camera Up
+			// Get translation amount
+			glm::vec3 translation = glm::vec3(0, 0.1, 0);
+			// Translate camera
+			*cameraPosPtr = *cameraPosPtr + translation;
+		}
+		else if (event.key.keysym.sym == SDLK_LCTRL) { // Translate Camera Down
+			// Get translation amount
+			glm::vec3 translation = glm::vec3(0, -0.1, 0);
+			// Translate camera
+			*cameraPosPtr = *cameraPosPtr + translation;
+		}
 	}
 	else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		window.savePPM("output.ppm");
@@ -338,17 +375,27 @@ int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, IMAGE_PLANE_SCALE, false);
 	SDL_Event event;
 
-	glm::vec3 initialCameraPosition = { 0, 0, 4 };
+	glm::vec3 cameraPosition = { 0, 0, 4 };
+	glm::vec3* cameraPosPtr = &cameraPosition;
+
 	float focalLength = 2;
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
-	rasterisedRender(cornellBox, initialCameraPosition, focalLength, window);
+	
 
 	while (true) {
-		if (window.pollForInputEvents(event)) handleEvent(event, window);
+		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr);
+
+		// draw() {
+
+		rasterisedRender(cornellBox, cameraPosition, focalLength, window);
+
+		// }
+
 		window.renderFrame();
+		window.clearPixels();
 	}
 }
