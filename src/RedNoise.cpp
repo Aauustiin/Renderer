@@ -11,9 +11,10 @@
 #include <ModelTriangle.h>
 
 #include <glm/vec3.hpp>
-#include <glm/glm.hpp>
+#include <glm/glm.hpp> // There's more stuff here than I need
 
 #include <AustinUtils.h>
+#include <chrono>
 
 #define WIDTH 320
 #define HEIGHT 240
@@ -422,8 +423,17 @@ int main(int argc, char* argv[]) {
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
 	
+	
+	std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
+	std::chrono::high_resolution_clock::time_point tempTime;
+	std::chrono::high_resolution_clock::duration deltaTime;
 
 	while (true) {
+
+		tempTime = std::chrono::high_resolution_clock::now();;
+		deltaTime = currentTime - tempTime;
+		currentTime = tempTime;
+
 		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr, cameraOrientationPtr);
 
 		// draw() {
