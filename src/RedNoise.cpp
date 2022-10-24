@@ -11,6 +11,7 @@
 #include <ModelTriangle.h>
 
 #include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 
 #include <AustinUtils.h>
 
@@ -313,11 +314,7 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 
 void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr) {
 	if (event.type == SDL_KEYDOWN) {
-		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
-		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
-		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
-		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
-		else if (event.key.keysym.sym == SDLK_u) {
+		if (event.key.keysym.sym == SDLK_u) {
 			CanvasTriangle tri = getRandomTriangle(window);
 			Colour c = getRandomColour();
 			drawStrokedTriangle(tri, c, window, false);
@@ -363,6 +360,38 @@ void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr
 			glm::vec3 translation = glm::vec3(0, -0.1, 0);
 			// Translate camera
 			*cameraPosPtr = *cameraPosPtr + translation;
+		}
+		else if (event.key.keysym.sym == SDLK_LEFT) { // Rotate Camera Left
+			// Get translation amount
+			glm::mat3 rotation = glm::mat3(glm::cos(-0.1), 0, glm::sin(-0.1),
+				0, 0, 0,
+				-glm::sin(-0.1), 0, glm::cos(-0.1));
+			// Translate camera
+			*cameraPosPtr = rotation * *cameraPosPtr;
+		}
+		else if (event.key.keysym.sym == SDLK_RIGHT) { // Rotate Camera Right
+			// Get translation amount
+			glm::mat3 rotation = glm::mat3(glm::cos(0.1), 0, glm::sin(0.1),
+				0, 0, 0,
+				-glm::sin(0.1), 0, glm::cos(0.1));
+			// Translate camera
+			*cameraPosPtr = rotation * *cameraPosPtr;
+		}
+		else if (event.key.keysym.sym == SDLK_UP) { // Rotate Camera Up
+			// Get translation amount
+			glm::mat3 rotation = glm::mat3(1, 0, 0,
+				0, glm::cos(0.1), -glm::sin(0.1),
+				0, glm::sin(0.1), glm::cos(0.1));
+			// Translate camera
+			*cameraPosPtr = rotation * *cameraPosPtr;
+		}
+		else if (event.key.keysym.sym == SDLK_DOWN) { // Rotate Camera Down
+			// Get translation amount
+			glm::mat3 rotation = glm::mat3(1, 0, 0,
+				0, glm::cos(-0.1), -glm::sin(-0.1),
+				0, glm::sin(-0.1), glm::cos(-0.1));
+			// Translate camera
+			*cameraPosPtr = rotation * *cameraPosPtr;
 		}
 	}
 	else if (event.type == SDL_MOUSEBUTTONDOWN) {
