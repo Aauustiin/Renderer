@@ -162,8 +162,8 @@ std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 	return result;
 }
 
-CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos, float focalLength, DrawingWindow& window) {
-	glm::vec3 cameraSpaceVertex = vertexPos - cameraPos;
+CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos, float focalLength, DrawingWindow& window, glm::mat3 cameraOrientation) {
+	glm::vec3 cameraSpaceVertex = cameraOrientation * (vertexPos - cameraPos);
 	cameraSpaceVertex.x *= window.scale;
 	cameraSpaceVertex.y *= window.scale;
 
@@ -183,32 +183,32 @@ void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow& wi
 	}
 }
 
-void pointcloudRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window) {
+void pointcloudRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window, glm::mat3 cameraOrientation) {
 	uint32_t white = (255 << 24) + (255 << 16) + (255 << 8) + 255;
 
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
 		for (int j = 0; j < 3; j++) { // For each vertex in the triangle...
-			CanvasPoint point = getCanvasIntersectionPoint(cameraPos, model[i].vertices[j], focalLength, window); // Get intersection point...
+			CanvasPoint point = getCanvasIntersectionPoint(cameraPos, model[i].vertices[j], focalLength, window, cameraOrientation); // Get intersection point...
 			window.setPixelColour(point.x, point.y, white); // Set colour
 		}
 	}
 }
 
-void wireframeRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window) {
+void wireframeRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window, glm::mat3 cameraOrientation) {
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
-		CanvasPoint va = getCanvasIntersectionPoint(cameraPos, model[i].vertices[0], focalLength, window);
-		CanvasPoint vb = getCanvasIntersectionPoint(cameraPos, model[i].vertices[1], focalLength, window);
-		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window);
+		CanvasPoint va = getCanvasIntersectionPoint(cameraPos, model[i].vertices[0], focalLength, window, cameraOrientation);
+		CanvasPoint vb = getCanvasIntersectionPoint(cameraPos, model[i].vertices[1], focalLength, window, cameraOrientation);
+		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window, cameraOrientation);
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
 		drawStrokedTriangle(triangle, Colour(255, 255, 255), window);
 	}
 }
 
-void rasterisedRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window) {
+void rasterisedRender(std::vector<ModelTriangle> model, glm::vec3 cameraPos, float focalLength, DrawingWindow& window, glm::mat3 cameraOrientation) {
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
-		CanvasPoint va = getCanvasIntersectionPoint(cameraPos, model[i].vertices[0], focalLength, window);
-		CanvasPoint vb = getCanvasIntersectionPoint(cameraPos, model[i].vertices[1], focalLength, window);
-		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window);
+		CanvasPoint va = getCanvasIntersectionPoint(cameraPos, model[i].vertices[0], focalLength, window, cameraOrientation);
+		CanvasPoint vb = getCanvasIntersectionPoint(cameraPos, model[i].vertices[1], focalLength, window, cameraOrientation);
+		CanvasPoint vc = getCanvasIntersectionPoint(cameraPos, model[i].vertices[2], focalLength, window, cameraOrientation);
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
 		drawFilledTriangle(triangle, model[i].colour, window);
 		//drawStrokedTriangle(triangle, model[i].colour, window);
@@ -312,7 +312,7 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 
 // MAIN LOOP
 
-void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr) {
+void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr, glm::mat3* cameraOrientationPtr) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_u) {
 			CanvasTriangle tri = getRandomTriangle(window);
@@ -364,18 +364,20 @@ void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr
 		else if (event.key.keysym.sym == SDLK_LEFT) { // Rotate Camera Left
 			// Get translation amount
 			glm::mat3 rotation = glm::mat3(glm::cos(-0.1), 0, glm::sin(-0.1),
-				0, 0, 0,
+				0, 1, 0,
 				-glm::sin(-0.1), 0, glm::cos(-0.1));
 			// Translate camera
 			*cameraPosPtr = rotation * *cameraPosPtr;
+			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
 		}
 		else if (event.key.keysym.sym == SDLK_RIGHT) { // Rotate Camera Right
 			// Get translation amount
 			glm::mat3 rotation = glm::mat3(glm::cos(0.1), 0, glm::sin(0.1),
-				0, 0, 0,
+				0, 1, 0,
 				-glm::sin(0.1), 0, glm::cos(0.1));
 			// Translate camera
 			*cameraPosPtr = rotation * *cameraPosPtr;
+			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
 		}
 		else if (event.key.keysym.sym == SDLK_UP) { // Rotate Camera Up
 			// Get translation amount
@@ -384,6 +386,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr
 				0, glm::sin(0.1), glm::cos(0.1));
 			// Translate camera
 			*cameraPosPtr = rotation * *cameraPosPtr;
+			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
 		}
 		else if (event.key.keysym.sym == SDLK_DOWN) { // Rotate Camera Down
 			// Get translation amount
@@ -392,6 +395,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr
 				0, glm::sin(-0.1), glm::cos(-0.1));
 			// Translate camera
 			*cameraPosPtr = rotation * *cameraPosPtr;
+			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
 		}
 	}
 	else if (event.type == SDL_MOUSEBUTTONDOWN) {
@@ -406,6 +410,10 @@ int main(int argc, char* argv[]) {
 
 	glm::vec3 cameraPosition = { 0, 0, 4 };
 	glm::vec3* cameraPosPtr = &cameraPosition;
+	glm::mat3 cameraOrientation = glm::mat3(1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
+	glm::mat3* cameraOrientationPtr = &cameraOrientation;
 
 	float focalLength = 2;
 
@@ -416,11 +424,11 @@ int main(int argc, char* argv[]) {
 	
 
 	while (true) {
-		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr);
+		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr, cameraOrientationPtr);
 
 		// draw() {
 
-		rasterisedRender(cornellBox, cameraPosition, focalLength, window);
+		rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
 
 		// }
 
