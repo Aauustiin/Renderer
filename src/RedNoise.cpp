@@ -213,6 +213,13 @@ glm::vec3 rotateAbout(glm::vec3 subject, glm::vec3 origin, glm::vec3 rotation) {
 	return rotatedSubject;
 }
 
+glm::mat3 lookAt(glm::mat3 subjectOientation, glm::vec3 subjectPosition, glm::vec3 target) {
+	glm::vec3 forward = glm::normalize(subjectPosition - target);
+	glm::vec3 right = glm::cross(forward, glm::vec3(0, 1, 0)); // TODO: Inverts image horizontally
+	glm::vec3 up = glm::cross(right, forward);
+	return glm::mat3(right, up, forward);
+}
+
 // Gets the center of a model.
 glm::vec3 getCenter(std::vector<ModelTriangle> model) {
 	glm::vec3 average = glm::vec3(0, 0, 0);
@@ -445,6 +452,7 @@ int main(int argc, char* argv[]) {
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
+	glm::vec3 cornellBoxCenter = getCenter(cornellBox);
 	
 	
 	std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
@@ -472,6 +480,7 @@ int main(int argc, char* argv[]) {
 		// }
 
 		cameraPosition = rotateAbout(cameraPosition, getCenter(cornellBox), glm::vec3(0, CAMERA_MOVE_SPEED/10, 0));
+		cameraOrientation = lookAt(cameraOrientation, cameraPosition, glm::vec3(0, 0, 0));
 
 		window.renderFrame();
 		window.clearPixels();
