@@ -370,6 +370,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window,
 
 	// TODO: How do I get these inputs frame rate independant?
 	// TODO: Should probably make this a switch
+	// TODO: movement should be relative to camera facing, not x, y, z
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_u) {
 			CanvasTriangle tri = getRandomTriangle(window);
@@ -402,22 +403,22 @@ void handleEvent(SDL_Event event, DrawingWindow& window,
 		}
 		else if (event.key.keysym.sym == SDLK_LEFT) {
 			glm::vec3 rotation = glm::vec3(0, -CAMERA_ROTATE_SPEED, 0); // Rotate Camera Left
-			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 		else if (event.key.keysym.sym == SDLK_RIGHT) { 
 			glm::vec3 rotation = glm::vec3(0, CAMERA_ROTATE_SPEED, 0); // Rotate Camera Right
-			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 		else if (event.key.keysym.sym == SDLK_UP) { 
 			glm::vec3 rotation = glm::vec3(CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Up
-			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 		else if (event.key.keysym.sym == SDLK_DOWN) { 
 			glm::vec3 rotation = glm::vec3(-CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Down
-			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 	}
@@ -470,9 +471,14 @@ int main(int argc, char* argv[]) {
 
 		// }
 
+		cameraPosition = rotateAbout(cameraPosition, getCenter(cornellBox), glm::vec3(0, CAMERA_MOVE_SPEED/10, 0));
+
 		window.renderFrame();
 		window.clearPixels();
 	}
 }
 
-// How to get centre of cornell box model? Go through all triangles and get the average
+// TODO: When rotating camera pos about origin, random blue line is drawn in the top right when the box is in the center of the screen?
+// Shouldn't be able to see part of the ceilling/Floor through the wall when looking at the box from the side
+// Random extra pixel drawn on the bottom of triangle? Maybe missing one from the top?
+// Bottom line of the floor isn't being coloured in
