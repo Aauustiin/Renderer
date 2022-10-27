@@ -19,6 +19,8 @@
 #define WIDTH 320
 #define HEIGHT 240
 #define IMAGE_PLANE_SCALE 90
+#define CAMERA_MOVE_SPEED 0.05
+#define CAMERA_ROTATE_SPEED 0.01
 
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window, bool useDepth = true);
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& window, bool useDepth = true);
@@ -174,6 +176,55 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPos, glm::vec3 vertexPos,
 	return CanvasPoint(u, v, cameraSpaceVertex.z);
 }
 
+// WORKSPACE
+
+glm::vec3 rotate(glm::vec3 subject, glm::vec3 rotation) {
+	glm::mat3 xRotation = { 1, 0, 0,
+		0, glm::cos(rotation.x), -glm::sin(rotation.x),
+		0, glm::sin(rotation.x), glm::cos(rotation.x) };
+	glm::mat3 yRotation = { glm::cos(rotation.y), 0, glm::sin(rotation.y),
+				0, 1, 0,
+				-glm::sin(rotation.y), 0, glm::cos(rotation.y) };
+	glm::mat3 zRotation = { glm::cos(rotation.z), -glm::sin(rotation.z), 0,
+		glm::sin(rotation.z), glm::cos(rotation.z), 0,
+		0, 0, 1 };
+	glm::vec3 result = zRotation * yRotation * xRotation * subject;
+	return result;
+}
+
+glm::mat3 rotate(glm::mat3 subject, glm::vec3 rotation) {
+	glm::mat3 xRotation = { 1, 0, 0,
+		0, glm::cos(rotation.x), -glm::sin(rotation.x),
+		0, glm::sin(rotation.x), glm::cos(rotation.x) };
+	glm::mat3 yRotation = {glm::cos(rotation.y), 0, glm::sin(rotation.y),
+				0, 1, 0,
+				-glm::sin(rotation.y), 0, glm::cos(rotation.y)};
+	glm::mat3 zRotation = { glm::cos(rotation.z), -glm::sin(rotation.z), 0,
+		glm::sin(rotation.z), glm::cos(rotation.z), 0,
+		0, 0, 1 };
+	glm::mat3 result = zRotation * yRotation * xRotation * subject;
+	return result;
+}
+
+glm::vec3 rotateAbout(glm::vec3 subject, glm::vec3 origin, glm::vec3 rotation) {
+	glm::vec3 originToSubject = subject - origin;
+	glm::vec3 rotatedOriginToSubject = rotate(originToSubject, rotation);
+	glm::vec3 rotatedSubject = rotatedOriginToSubject + origin;
+	return rotatedSubject;
+}
+
+// Gets the center of a model.
+glm::vec3 getCenter(std::vector<ModelTriangle> model) {
+	glm::vec3 average = glm::vec3(0, 0, 0);
+	for (int i = 0; i < model.size(); i++) {
+		average += model[i].vertices[0];
+		average += model[i].vertices[1];
+		average += model[i].vertices[2];
+	}
+	average /= (model.size() * 3);
+	return average;
+}
+
 // DRAWING PRIMATIVES
 
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow& window, bool useDepth = true) {
@@ -313,7 +364,12 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 
 // MAIN LOOP
 
-void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr, glm::mat3* cameraOrientationPtr) {
+void handleEvent(SDL_Event event, DrawingWindow& window,
+	glm::vec3* cameraPosPtr, glm::mat3* cameraOrientationPtr,
+	long long deltaTime) {
+
+	// TODO: How do I get these inputs frame rate independant?
+	// TODO: Should probably make this a switch
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_u) {
 			CanvasTriangle tri = getRandomTriangle(window);
@@ -326,77 +382,43 @@ void handleEvent(SDL_Event event, DrawingWindow& window, glm::vec3* cameraPosPtr
 			drawFilledTriangle(tri, c, window, false);
 			drawStrokedTriangle(tri, Colour(255, 255, 255), window, false);
 		}
-		else if (event.key.keysym.sym == SDLK_a) { // Translate Camera Left
-			// Get translation amount
-			glm::vec3 translation = glm::vec3(0.1, 0, 0);
-			// Translate camera
-			*cameraPosPtr = *cameraPosPtr + translation;
+		else if (event.key.keysym.sym == SDLK_a) { 
+			*cameraPosPtr = *cameraPosPtr + glm::vec3(CAMERA_MOVE_SPEED, 0, 0); // Translate Camera Left
 		}
-		else if (event.key.keysym.sym == SDLK_d) { // Translate Camera Right
-			// Get translation amount
-			glm::vec3 translation = glm::vec3(-0.1, 0, 0);
-			// Translate camera
-			*cameraPosPtr = *cameraPosPtr + translation;
+		else if (event.key.keysym.sym == SDLK_d) { 
+			*cameraPosPtr = *cameraPosPtr + glm::vec3(-CAMERA_MOVE_SPEED, 0, 0); // Translate Camera Right
 		}
-		else if (event.key.keysym.sym == SDLK_w) { // Translate Camera Forward
-			// Get translation amount
-			glm::vec3 translation = glm::vec3(0, 0, -0.1);
-			// Translate camera
-			*cameraPosPtr = *cameraPosPtr + translation;
+		else if (event.key.keysym.sym == SDLK_w) { 
+			*cameraPosPtr = *cameraPosPtr + glm::vec3(0, 0, -CAMERA_MOVE_SPEED); // Translate Camera Forward
 		}
-		else if (event.key.keysym.sym == SDLK_s) { // Translate Camera Back
-			// Get translation amount
-			glm::vec3 translation = glm::vec3(0, 0, 0.1);
-			// Translate camera
-			*cameraPosPtr = *cameraPosPtr + translation;
+		else if (event.key.keysym.sym == SDLK_s) { 
+			*cameraPosPtr = *cameraPosPtr + glm::vec3(0, 0, CAMERA_MOVE_SPEED); // Translate Camera Back
 		}
-		else if (event.key.keysym.sym == SDLK_SPACE) { // Translate Camera Up
-			// Get translation amount
-			glm::vec3 translation = glm::vec3(0, 0.1, 0);
-			// Translate camera
-			*cameraPosPtr = *cameraPosPtr + translation;
+		else if (event.key.keysym.sym == SDLK_SPACE) { 
+			*cameraPosPtr = *cameraPosPtr + glm::vec3(0, CAMERA_MOVE_SPEED, 0); // Translate Camera Up
 		}
-		else if (event.key.keysym.sym == SDLK_LCTRL) { // Translate Camera Down
-			// Get translation amount
-			glm::vec3 translation = glm::vec3(0, -0.1, 0);
-			// Translate camera
-			*cameraPosPtr = *cameraPosPtr + translation;
+		else if (event.key.keysym.sym == SDLK_LCTRL) { 
+			*cameraPosPtr = *cameraPosPtr + glm::vec3(0, -CAMERA_MOVE_SPEED, 0); // Translate Camera Down
 		}
-		else if (event.key.keysym.sym == SDLK_LEFT) { // Rotate Camera Left
-			// Get translation amount
-			glm::mat3 rotation = glm::mat3(glm::cos(-0.1), 0, glm::sin(-0.1),
-				0, 1, 0,
-				-glm::sin(-0.1), 0, glm::cos(-0.1));
-			// Translate camera
-			*cameraPosPtr = rotation * *cameraPosPtr;
-			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
+		else if (event.key.keysym.sym == SDLK_LEFT) {
+			glm::vec3 rotation = glm::vec3(0, -CAMERA_ROTATE_SPEED, 0); // Rotate Camera Left
+			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
-		else if (event.key.keysym.sym == SDLK_RIGHT) { // Rotate Camera Right
-			// Get translation amount
-			glm::mat3 rotation = glm::mat3(glm::cos(0.1), 0, glm::sin(0.1),
-				0, 1, 0,
-				-glm::sin(0.1), 0, glm::cos(0.1));
-			// Translate camera
-			*cameraPosPtr = rotation * *cameraPosPtr;
-			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
+		else if (event.key.keysym.sym == SDLK_RIGHT) { 
+			glm::vec3 rotation = glm::vec3(0, CAMERA_ROTATE_SPEED, 0); // Rotate Camera Right
+			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
-		else if (event.key.keysym.sym == SDLK_UP) { // Rotate Camera Up
-			// Get translation amount
-			glm::mat3 rotation = glm::mat3(1, 0, 0,
-				0, glm::cos(0.1), -glm::sin(0.1),
-				0, glm::sin(0.1), glm::cos(0.1));
-			// Translate camera
-			*cameraPosPtr = rotation * *cameraPosPtr;
-			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
+		else if (event.key.keysym.sym == SDLK_UP) { 
+			glm::vec3 rotation = glm::vec3(CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Up
+			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
-		else if (event.key.keysym.sym == SDLK_DOWN) { // Rotate Camera Down
-			// Get translation amount
-			glm::mat3 rotation = glm::mat3(1, 0, 0,
-				0, glm::cos(-0.1), -glm::sin(-0.1),
-				0, glm::sin(-0.1), glm::cos(-0.1));
-			// Translate camera
-			*cameraPosPtr = rotation * *cameraPosPtr;
-			*cameraOrientationPtr = rotation * *cameraOrientationPtr;
+		else if (event.key.keysym.sym == SDLK_DOWN) { 
+			glm::vec3 rotation = glm::vec3(-CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Down
+			*cameraPosPtr = rotate(*cameraPosPtr, rotation);
+			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 	}
 	else if (event.type == SDL_MOUSEBUTTONDOWN) {
@@ -426,15 +448,21 @@ int main(int argc, char* argv[]) {
 	
 	std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
 	std::chrono::high_resolution_clock::time_point tempTime;
-	std::chrono::high_resolution_clock::duration deltaTime;
+	/*
+	Note: This isn't always long long, it's type is actually std::chrono::milliseconds::rep, but in most c++ implementations this is
+	equivalent to long long.
+	*/
+	long long deltaTime;
 
 	while (true) {
 
 		tempTime = std::chrono::high_resolution_clock::now();;
-		deltaTime = currentTime - tempTime;
+		// At this point, currentTime will be the time recorded last frame.
+		deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(tempTime - currentTime).count() / 1000000;
+		// Delta time stuff doesn't work quite how I'd like it to though, revisit later.
 		currentTime = tempTime;
 
-		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr, cameraOrientationPtr);
+		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr, cameraOrientationPtr, deltaTime);
 
 		// draw() {
 
@@ -446,3 +474,5 @@ int main(int argc, char* argv[]) {
 		window.clearPixels();
 	}
 }
+
+// How to get centre of cornell box model? Go through all triangles and get the average
