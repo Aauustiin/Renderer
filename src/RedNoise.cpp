@@ -286,6 +286,7 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
 	if (triangle.v1().y > triangle.v2().y) std::swap(triangle.v1(), triangle.v2());
 	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
+
 	std::vector<CanvasPoint> topToMiddle = getLine(triangle.v0(), triangle.v1());
 	std::vector<CanvasPoint> middleToBottom = getLine(triangle.v1(), triangle.v2());
 	std::vector<CanvasPoint> topToBottom = getLine(triangle.v0(), triangle.v2());
@@ -309,7 +310,10 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 	for (int i = middle.y; i <= triangle.v2().y; i++) {
 		CanvasPoint point1;
 		for (int j = 0; j < middleToBottom.size(); j++) {
-			if (middleToBottom[j].y == i) point1 = middleToBottom[j];
+			if (middleToBottom[j].y == i) {
+				point1 = middleToBottom[j];
+				break;
+			}
 		}
 		CanvasPoint point2;
 		for (int j = 0; j < topToBottom.size(); j++) {
@@ -379,6 +383,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window,
 	// TODO: How do I get these inputs frame rate independant?
 	// TODO: Should probably make this a switch
 	// TODO: movement should be relative to camera facing, not x, y, z
+	// TODO: Ideally we want mouse look
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_u) {
 			CanvasTriangle tri = getRandomTriangle(window);
@@ -389,7 +394,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window,
 			CanvasTriangle tri = getRandomTriangle(window);
 			Colour c = getRandomColour();
 			drawFilledTriangle(tri, c, window, false);
-			drawStrokedTriangle(tri, Colour(255, 255, 255), window, false);
+			//drawStrokedTriangle(tri, Colour(255, 255, 255), window, false);
 		}
 		else if (event.key.keysym.sym == SDLK_a) { 
 			*cameraPosPtr = *cameraPosPtr + glm::vec3(CAMERA_MOVE_SPEED, 0, 0); // Translate Camera Left
@@ -411,22 +416,18 @@ void handleEvent(SDL_Event event, DrawingWindow& window,
 		}
 		else if (event.key.keysym.sym == SDLK_LEFT) {
 			glm::vec3 rotation = glm::vec3(0, -CAMERA_ROTATE_SPEED, 0); // Rotate Camera Left
-			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 		else if (event.key.keysym.sym == SDLK_RIGHT) { 
 			glm::vec3 rotation = glm::vec3(0, CAMERA_ROTATE_SPEED, 0); // Rotate Camera Right
-			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 		else if (event.key.keysym.sym == SDLK_UP) { 
 			glm::vec3 rotation = glm::vec3(CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Up
-			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 		else if (event.key.keysym.sym == SDLK_DOWN) { 
 			glm::vec3 rotation = glm::vec3(-CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Down
-			//*cameraPosPtr = rotate(*cameraPosPtr, rotation);
 			*cameraOrientationPtr = rotate(*cameraOrientationPtr, rotation);
 		}
 	}
@@ -464,6 +465,16 @@ int main(int argc, char* argv[]) {
 	*/
 	long long deltaTime;
 	
+	uint32_t white = (255 << 24) + (255 << 16) + (255 << 8) + 255;
+
+	CanvasPoint p1 = CanvasPoint(2, 1);
+	CanvasPoint p2 = CanvasPoint(0, 3);
+	CanvasPoint p3 = CanvasPoint(4, 3);
+	CanvasTriangle tri = CanvasTriangle(p1, p2, p3);
+	drawFilledTriangle(tri, getRandomColour(), window, false);
+	window.setPixelColour(p1.x, p1.y, white);
+	window.setPixelColour(p2.x, p2.y, white);
+	window.setPixelColour(p3.x, p3.y, white);
 
 	while (true) {
 
@@ -471,13 +482,15 @@ int main(int argc, char* argv[]) {
 		// At this point, currentTime will be the time recorded last frame.
 		deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(tempTime - currentTime).count() / 1000000;
 		// Delta time stuff doesn't work quite how I'd like it to though, revisit later.
+		// We probably want delta time as a fraction of a second, that way it's easy to say things like, I want the camera to orbit the box once every
+		// Two seconds
 		currentTime = tempTime;
 
 		if (window.pollForInputEvents(event)) handleEvent(event, window, cameraPosPtr, cameraOrientationPtr, deltaTime);
 
 		// draw() {
 
-		//rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
+		rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
 
 		// }
 
@@ -490,6 +503,5 @@ int main(int argc, char* argv[]) {
 }
 
 // TODO: When rotating camera pos about origin, random blue line is drawn in the top right when the box is in the center of the screen?
-// Shouldn't be able to see part of the ceilling/Floor through the wall when looking at the box from the side
-// Random extra pixel drawn on the bottom of triangle? Maybe missing one from the top?
-// Bottom line of the floor isn't being coloured in
+// TODO: Shouldn't be able to see part of the ceilling/Floor through the wall when looking at the box from the side
+// TODO: Bottom line of the floor isn't being coloured in
