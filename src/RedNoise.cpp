@@ -18,7 +18,7 @@
 
 #define WIDTH 320
 #define HEIGHT 240
-#define IMAGE_PLANE_SCALE 90
+#define IMAGE_PLANE_SCALE 180
 #define CAMERA_MOVE_SPEED 0.05
 #define CAMERA_ROTATE_SPEED 0.01
 
@@ -132,7 +132,7 @@ std::vector<CanvasPoint> interpolate(CanvasPoint from, CanvasPoint to, int numbe
 	std::vector<float> depths = interpolate(from.depth, to.depth, numberOfValues);
 	std::vector<CanvasPoint> res(numberOfValues);
 	for (int i = 0; i < numberOfValues; i++) {
-		res[i] = CanvasPoint(xs[i], ys[i], depths[i]);
+		res[i] = CanvasPoint(std::round(xs[i]), std::round(ys[i]), depths[i]);
 		res[i].texturePoint = TexturePoint(tpXs[i], tpYs[i]);
 	}
 	return res;
@@ -151,6 +151,7 @@ std::vector<glm::vec3> interpolate(glm::vec3 from, glm::vec3 to, int numberOfVal
 
 // RENDERING UTILS
 
+// TODO: Puts extra pixel at from
 std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 	std::vector<CanvasPoint> result;
 	if ((from.x == to.x) && (from.y == to.y)) {
@@ -462,6 +463,7 @@ int main(int argc, char* argv[]) {
 	equivalent to long long.
 	*/
 	long long deltaTime;
+	
 
 	while (true) {
 
@@ -475,15 +477,15 @@ int main(int argc, char* argv[]) {
 
 		// draw() {
 
-		rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
+		//rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
 
 		// }
 
-		cameraPosition = rotateAbout(cameraPosition, getCenter(cornellBox), glm::vec3(0, CAMERA_MOVE_SPEED/10, 0));
-		cameraOrientation = lookAt(cameraOrientation, cameraPosition, glm::vec3(0, 0, 0));
+		//cameraPosition = rotateAbout(cameraPosition, getCenter(cornellBox), glm::vec3(0, CAMERA_MOVE_SPEED/10, 0));
+		//cameraOrientation = lookAt(cameraOrientation, cameraPosition, glm::vec3(0, 0, 0));
 
 		window.renderFrame();
-		window.clearPixels();
+		//window.clearPixels();
 	}
 }
 
