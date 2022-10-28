@@ -18,7 +18,7 @@
 
 #define WIDTH 320
 #define HEIGHT 240
-#define IMAGE_PLANE_SCALE 180
+#define IMAGE_PLANE_SCALE 120
 #define CAMERA_MOVE_SPEED 0.05
 #define CAMERA_ROTATE_SPEED 0.01
 
@@ -151,7 +151,6 @@ std::vector<glm::vec3> interpolate(glm::vec3 from, glm::vec3 to, int numberOfVal
 
 // RENDERING UTILS
 
-// TODO: Puts extra pixel at from
 std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 	std::vector<CanvasPoint> result;
 	if ((from.x == to.x) && (from.y == to.y)) {
@@ -321,6 +320,7 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 		}
 		drawLine(point1, point2, colour, window, useDepth);
 	}
+	drawStrokedTriangle(triangle, colour, window, useDepth); // Bandage over the problem, should fix later
 }
 
 void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWindow& window) {
@@ -394,6 +394,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window,
 			CanvasTriangle tri = getRandomTriangle(window);
 			Colour c = getRandomColour();
 			drawFilledTriangle(tri, c, window, false);
+			drawStrokedTriangle(tri, c, window, false);
 			//drawStrokedTriangle(tri, Colour(255, 255, 255), window, false);
 		}
 		else if (event.key.keysym.sym == SDLK_a) { 
@@ -490,7 +491,7 @@ int main(int argc, char* argv[]) {
 
 		// draw() {
 
-		rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
+		//rasterisedRender(cornellBox, cameraPosition, focalLength, window, cameraOrientation);
 
 		// }
 
@@ -504,4 +505,3 @@ int main(int argc, char* argv[]) {
 
 // TODO: When rotating camera pos about origin, random blue line is drawn in the top right when the box is in the center of the screen?
 // TODO: Shouldn't be able to see part of the ceilling/Floor through the wall when looking at the box from the side
-// TODO: Bottom line of the floor isn't being coloured in
