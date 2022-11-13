@@ -9,6 +9,7 @@
 #include <Colour.h>
 #include <TextureMap.h>
 #include <ModelTriangle.h>
+#include <RayTriangleIntersection.h>
 
 #include <glm/vec3.hpp>
 #include <glm/glm.hpp> // There's more stuff here than I need
@@ -400,6 +401,34 @@ void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, c
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
 		drawFilledTriangle(triangle, model[i].colour, window);
 	}
+}
+
+// RAYTRACING
+
+RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec3 direction, std::vector<ModelTriangle> targets) {
+	glm::vec3 e0 = targets[0].vertices[1] - targets[0].vertices[0];
+	glm::vec3 e1 = targets[0].vertices[2] - targets[0].vertices[0];
+	glm::vec3 SPVector = startPosition - targets[0].vertices[0];
+	glm::mat3 DEMatrix(-direction, e0, e1);
+	glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
+	RayTriangleIntersection result = RayTriangleIntersection(direction * possibleSolution.x,
+		possibleSolution.x, targets[0],
+		0);
+
+	for (int i = 0; i < targets.size(); i++) {
+		glm::vec3 e0 = targets[i].vertices[1] - targets[i].vertices[0];
+		glm::vec3 e1 = targets[i].vertices[2] - targets[i].vertices[0];
+		glm::vec3 SPVector = startPosition - targets[i].vertices[0];
+		glm::mat3 DEMatrix(-direction, e0, e1);
+		glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
+		if (possibleSolution.x < result.distanceFromCamera) {
+			result = RayTriangleIntersection(direction * possibleSolution.x,
+				possibleSolution.x, targets[i],
+				i);
+		}
+	}
+
+	return result;
 }
 
 // MAIN LOOP
