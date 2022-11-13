@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <unordered_map>
+#include <limits>
 
 #include <CanvasTriangle.h>
 #include <CanvasPoint.h>
@@ -405,26 +406,38 @@ void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, c
 
 // RAYTRACING
 
-RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec3 direction, std::vector<ModelTriangle> targets) {
-	glm::vec3 e0 = targets[0].vertices[1] - targets[0].vertices[0];
-	glm::vec3 e1 = targets[0].vertices[2] - targets[0].vertices[0];
-	glm::vec3 SPVector = startPosition - targets[0].vertices[0];
+RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direction, ModelTriangle target) {
+	RayTriangleIntersection result = RayTriangleIntersection(direction,
+		std::numeric_limits<float>::max(), target,
+		0);;
+
+	glm::vec3 e0 = target.vertices[1] - target.vertices[0];
+	glm::vec3 e1 = target.vertices[2] - target.vertices[0];
+	glm::vec3 SPVector = startPosition - target.vertices[0];
 	glm::mat3 DEMatrix(-direction, e0, e1);
 	glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
-	RayTriangleIntersection result = RayTriangleIntersection(direction * possibleSolution.x,
-		possibleSolution.x, targets[0],
-		0);
+
+	bool boundsCheck = ((possibleSolution.y >= 0.0) && (possibleSolution.y <= 1.0)) &&
+		((possibleSolution.z >= 0.0) && (possibleSolution.z <= 1.0)) &&
+		((possibleSolution.y + possibleSolution.z) <= 1.0);
+
+	if ((possibleSolution.x > 0) && boundsCheck) {
+		result = RayTriangleIntersection(direction * possibleSolution.x,
+			possibleSolution.x, target,
+			0);
+	}
+	
+	return result;
+}
+
+RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec3 direction, std::vector<ModelTriangle> targets) {
+	RayTriangleIntersection result = getIntersection(startPosition, direction, targets[0]);
 
 	for (int i = 0; i < targets.size(); i++) {
-		glm::vec3 e0 = targets[i].vertices[1] - targets[i].vertices[0];
-		glm::vec3 e1 = targets[i].vertices[2] - targets[i].vertices[0];
-		glm::vec3 SPVector = startPosition - targets[i].vertices[0];
-		glm::mat3 DEMatrix(-direction, e0, e1);
-		glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
-		if (possibleSolution.x < result.distanceFromCamera) {
-			result = RayTriangleIntersection(direction * possibleSolution.x,
-				possibleSolution.x, targets[i],
-				i);
+		RayTriangleIntersection possibleResult = getIntersection(startPosition, direction, targets[i]);
+		possibleResult.triangleIndex = i;
+		if (possibleResult.distanceFromCamera < result.distanceFromCamera) {
+			result = possibleResult;
 		}
 	}
 
@@ -506,6 +519,10 @@ int main(int argc, char* argv[]) {
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
+
+	RayTriangleIntersection testIntersection = getClosestIntersection(mainCamera.position, glm::vec3(0, 0, -1), cornellBox);
+	std::cout << testIntersection << '\n';
+	rasterisedRender(std::vector<ModelTriangle>{testIntersection.intersectedTriangle}, window, mainCamera);
 
 	while (true) {
 		window.clearPixels();
