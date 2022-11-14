@@ -30,6 +30,7 @@ struct camera {
 	float focalLength;
 };
 
+
 // FILE PARSERS
 
 std::unordered_map<std::string, Colour> readMTL(std::string& filepath) {
@@ -407,9 +408,10 @@ void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, c
 // RAYTRACING
 
 RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direction, ModelTriangle target) {
-	RayTriangleIntersection result = RayTriangleIntersection(direction,
-		std::numeric_limits<float>::max(), target,
-		0);;
+	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
+		std::numeric_limits<float>::max(),
+		ModelTriangle(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), Colour(0, 0, 0)),
+		0);
 
 	glm::vec3 e0 = target.vertices[1] - target.vertices[0];
 	glm::vec3 e1 = target.vertices[2] - target.vertices[0];
@@ -431,12 +433,15 @@ RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direc
 }
 
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec3 direction, std::vector<ModelTriangle> targets) {
-	RayTriangleIntersection result = getIntersection(startPosition, direction, targets[0]);
+	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
+		std::numeric_limits<float>::max(),
+		ModelTriangle(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), Colour(0, 0, 0)),
+		0);
 
 	for (int i = 0; i < targets.size(); i++) {
 		RayTriangleIntersection possibleResult = getIntersection(startPosition, direction, targets[i]);
 		possibleResult.triangleIndex = i;
-		if (possibleResult.distanceFromCamera < result.distanceFromCamera) {
+		if (possibleResult.distance < result.distance) {
 			result = possibleResult;
 		}
 	}
@@ -444,7 +449,13 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec
 	return result;
 }
 
-void rayTracedRender(std::vector<ModelTriangle> model, DrawingWindow& window, camera cam) {
+void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingWindow& window, camera cam) {
+	// Transform light into camera space.
+	light = cam.orientation * (light - cam.position);
+	light.x *= window.scale;
+	light.y *= window.scale;
+
+	// Transform triangles into camera space.
 	for (int i = 0; i < model.size(); i++) {
 		for (int j = 0; j < 3; j++) {
 			model[i].vertices[j] = cam.orientation * (model[i].vertices[j] - cam.position);
@@ -452,24 +463,42 @@ void rayTracedRender(std::vector<ModelTriangle> model, DrawingWindow& window, ca
 			model[i].vertices[j].y *= window.scale;
 		}
 	}
+
+	// For each pixel...
 	for (int i = 0; i < WIDTH; i++) {
 		for (int j = 0; j < HEIGHT; j++) {
-			glm::vec3 direction = { i - WIDTH/2, HEIGHT/2 - j, -cam.focalLength };
+			// Fire a ray into the scene...
+			glm::vec3 direction = { (i - WIDTH/2), (HEIGHT/2 - j), -cam.focalLength};
+
 			direction = glm::normalize(direction);
-			RayTriangleIntersection intersection = getClosestIntersection(cam.position, direction, model);
-			window.setPixelColour(i, j, intersection.intersectedTriangle.colour.getPackedColour());
+			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
+			CanvasPoint ting = getCanvasIntersectionPoint(intersection.intersectionPoint, window, cam);
+
+			uint32_t colour;
+			if (intersection.distance == std::numeric_limits<float>::max()) colour = Colour(0, 0, 0).getPackedColour(); // This ray hit nothing.
+			else {
+				// This ray hit something, check if light can reach it...
+				glm::vec3 pointToLight = light - intersection.intersectionPoint;
+				glm::vec3 pointToLightNorm = glm::normalize(pointToLight);
+				RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint, glm::normalize(pointToLight), model);
+
+				if (lightIntersection.distance < glm::length(pointToLight)) {
+					// If not, make shadow.
+					colour = Colour(0, 0, 0).getPackedColour();
+				}
+				else {
+					// If so, make colour!
+					colour = intersection.intersectedTriangle.colour.getPackedColour();
+				}
+			}
+			window.setPixelColour(i, j, colour);
 		}
 	}
-	std::cout << "Done" << '\n';
 }
 
 // MAIN LOOP
 
 void handleEvent(SDL_Event event, DrawingWindow& window, camera* cam) {
-
-	// TODO: Should probably make this a switch
-	// TODO: movement should be relative to camera facing, not x, y, z
-	// TODO: Ideally we want mouse look
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_u) {
 			CanvasTriangle tri = getRandomTriangle(window);
@@ -534,12 +563,15 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
+	glm::vec3 lightPosition = {0.0, 0.85, 0.0};
+	CanvasPoint ssLightPos = getCanvasIntersectionPoint(lightPosition, window, mainCamera);
+
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
 
-	rayTracedRender(cornellBox, window, mainCamera);
+	rayTracedRender(cornellBox, lightPosition, window, mainCamera);
 	//rasterisedRender(cornellBox, window, mainCamera);
 
 	while (true) {
@@ -548,6 +580,7 @@ int main(int argc, char* argv[]) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera);
 
 		// draw() {
+
 
 
 		// }
