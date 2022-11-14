@@ -24,12 +24,23 @@
 #define CAMERA_ROTATE_SPEED 0.01
 #define PI 3.14159265358979323846264338327950288
 
-struct camera {
+enum RenderMode {
+	POINTCLOUD,
+	WIREFRAME,
+	RASTERISED,
+	RAYTRACED
+};
+
+struct Camera {
 	glm::vec3 position;
 	glm::mat3 orientation;
 	float focalLength;
 };
 
+struct RendererState {
+	RenderMode renderMode;
+	bool orbiting;
+};
 
 // FILE PARSERS
 
@@ -171,7 +182,7 @@ std::vector<CanvasPoint> getLine(CanvasPoint from, CanvasPoint to) {
 	return result;
 }
 
-CanvasPoint getCanvasIntersectionPoint(glm::vec3 vertexPos, DrawingWindow& window, camera cam) {
+CanvasPoint getCanvasIntersectionPoint(glm::vec3 vertexPos, DrawingWindow& window, Camera cam) {
 	glm::vec3 cameraSpaceVertex = cam.orientation * (vertexPos - cam.position);
 	cameraSpaceVertex.x *= window.scale;
 	cameraSpaceVertex.y *= window.scale;
@@ -374,7 +385,7 @@ void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWi
 	}
 }
 
-void pointcloudRender(std::vector<ModelTriangle> model, DrawingWindow& window, camera cam) {
+void pointcloudRender(std::vector<ModelTriangle> model, DrawingWindow& window, Camera cam) {
 	uint32_t white = (255 << 24) + (255 << 16) + (255 << 8) + 255;
 
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
@@ -385,7 +396,7 @@ void pointcloudRender(std::vector<ModelTriangle> model, DrawingWindow& window, c
 	}
 }
 
-void wireframeRender(std::vector<ModelTriangle> model, DrawingWindow& window, camera cam) {
+void wireframeRender(std::vector<ModelTriangle> model, DrawingWindow& window, Camera cam) {
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
 		CanvasPoint va = getCanvasIntersectionPoint(model[i].vertices[0], window, cam);
 		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1], window, cam);
@@ -395,7 +406,7 @@ void wireframeRender(std::vector<ModelTriangle> model, DrawingWindow& window, ca
 	}
 }
 
-void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, camera cam) {
+void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, Camera cam) {
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
 		CanvasPoint va = getCanvasIntersectionPoint(model[i].vertices[0], window, cam);
 		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1], window, cam);
@@ -449,7 +460,7 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec
 	return result;
 }
 
-void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingWindow& window, camera cam) {
+void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingWindow& window, Camera cam) {
 	// Transform light into camera space.
 	light = cam.orientation * (light - cam.position);
 	light.x *= window.scale;
@@ -469,20 +480,22 @@ void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingW
 		for (int j = 0; j < HEIGHT; j++) {
 			// Fire a ray into the scene...
 			glm::vec3 direction = { (i - WIDTH/2), (HEIGHT/2 - j), -cam.focalLength};
-
 			direction = glm::normalize(direction);
 			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
-			CanvasPoint ting = getCanvasIntersectionPoint(intersection.intersectionPoint, window, cam);
 
 			uint32_t colour;
-			if (intersection.distance == std::numeric_limits<float>::max()) colour = Colour(0, 0, 0).getPackedColour(); // This ray hit nothing.
+			if (intersection.distance == std::numeric_limits<float>::max()) 
+				colour = Colour(0, 0, 0).getPackedColour(); // This ray hit nothing.
 			else {
 				// This ray hit something, check if light can reach it...
 				glm::vec3 pointToLight = light - intersection.intersectionPoint;
 				glm::vec3 pointToLightNorm = glm::normalize(pointToLight);
-				RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint, glm::normalize(pointToLight), model);
+				RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
+					glm::normalize(pointToLight),
+					model);
 
-				if (lightIntersection.distance < glm::length(pointToLight)) {
+				if ( ( lightIntersection.triangleIndex != intersection.triangleIndex ) &&
+					( lightIntersection.distance < glm::length(pointToLight) ) ) {
 					// If not, make shadow.
 					colour = Colour(0, 0, 0).getPackedColour();
 				}
@@ -498,20 +511,9 @@ void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingW
 
 // MAIN LOOP
 
-void handleEvent(SDL_Event event, DrawingWindow& window, camera* cam) {
+void handleEvent(SDL_Event event, DrawingWindow& window, Camera* cam, RendererState* state) {
 	if (event.type == SDL_KEYDOWN) {
-		if (event.key.keysym.sym == SDLK_u) {
-			CanvasTriangle tri = getRandomTriangle(window);
-			Colour c = getRandomColour();
-			drawStrokedTriangle(tri, c, window, false);
-		}
-		else if (event.key.keysym.sym == SDLK_f) {
-			CanvasTriangle tri = getRandomTriangle(window);
-			Colour c = getRandomColour();
-			drawFilledTriangle(tri, c, window, false);
-			drawStrokedTriangle(tri, Colour(255, 255, 255), window, false);
-		}
-		else if (event.key.keysym.sym == SDLK_a) { 
+		if (event.key.keysym.sym == SDLK_a) { 
 			((*cam)).position = (*cam).position + glm::vec3(-CAMERA_MOVE_SPEED, 0, 0); // Translate Camera Left
 		}
 		else if (event.key.keysym.sym == SDLK_d) { 
@@ -545,6 +547,21 @@ void handleEvent(SDL_Event event, DrawingWindow& window, camera* cam) {
 			glm::vec3 rotation = glm::vec3(-CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Down
 			(*cam).orientation = rotate((*cam).orientation, rotation);
 		}
+		else if (event.key.keysym.sym == SDLK_1) {
+			(*state).renderMode = POINTCLOUD;
+		}
+		else if (event.key.keysym.sym == SDLK_2) {
+			(*state).renderMode = WIREFRAME;
+		}
+		else if (event.key.keysym.sym == SDLK_3) {
+			(*state).renderMode = RASTERISED;
+		}
+		else if (event.key.keysym.sym == SDLK_4) {
+			(*state).renderMode = RAYTRACED;
+		}
+		else if (event.key.keysym.sym == SDLK_o) {
+			(*state).orbiting = !(*state).orbiting;
+		}
 	}
 	else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		window.savePPM("output.ppm");
@@ -556,7 +573,11 @@ int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, IMAGE_PLANE_SCALE, false);
 	SDL_Event event;
 
-	camera mainCamera;
+	RendererState state;
+	state.renderMode = RASTERISED;
+	state.orbiting = false;
+
+	Camera mainCamera;
 	mainCamera.focalLength = 2;
 	mainCamera.position = glm::vec3(0, 0, 4);
 	mainCamera.orientation = glm::mat3(1, 0, 0,
@@ -564,30 +585,40 @@ int main(int argc, char* argv[]) {
 		0, 0, 1);
 
 	glm::vec3 lightPosition = {0.0, 0.85, 0.0};
-	CanvasPoint ssLightPos = getCanvasIntersectionPoint(lightPosition, window, mainCamera);
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
 
-	rayTracedRender(cornellBox, lightPosition, window, mainCamera);
-	//rasterisedRender(cornellBox, window, mainCamera);
-
 	while (true) {
-		//window.clearPixels();
-
-		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera);
+		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera, &state);
 
 		// draw() {
+		window.clearPixels();
 
-
-
-		// }
-
-		//mainCamera.position = rotateAbout(mainCamera.position, glm::vec3(0, 0, 0), glm::vec3(0, -CAMERA_MOVE_SPEED / 10, 0));
-		//mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
+		switch (state.renderMode) {
+			case POINTCLOUD:
+				pointcloudRender(cornellBox, window, mainCamera);
+				break;
+			case WIREFRAME:
+				wireframeRender(cornellBox, window, mainCamera);
+				break;
+			case RASTERISED:
+				rasterisedRender(cornellBox, window, mainCamera);
+				break;
+			case RAYTRACED:
+				rayTracedRender(cornellBox, lightPosition, window, mainCamera);
+				break;
+		}
 
 		window.renderFrame();
+		// }
+
+		if (state.orbiting) {
+			mainCamera.position = rotateAbout(mainCamera.position, glm::vec3(0, 0, 0), glm::vec3(0, -CAMERA_MOVE_SPEED / 10, 0));
+			mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
+		}
+
 	}
 }
