@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <limits>
+#include <algorithm>
 
 #include <CanvasTriangle.h>
 #include <CanvasPoint.h>
@@ -443,17 +444,22 @@ RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direc
 	return result;
 }
 
-RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec3 direction, std::vector<ModelTriangle> targets) {
+RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
+	glm::vec3 direction,
+	std::vector<ModelTriangle> targets,
+	int indexBlacklist = std::numeric_limits<int>::max()) {
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
 		ModelTriangle(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), Colour(0, 0, 0)),
 		0);
 
 	for (int i = 0; i < targets.size(); i++) {
-		RayTriangleIntersection possibleResult = getIntersection(startPosition, direction, targets[i]);
-		possibleResult.triangleIndex = i;
-		if (possibleResult.distance < result.distance) {
-			result = possibleResult;
+		if (i != indexBlacklist) {
+			RayTriangleIntersection possibleResult = getIntersection(startPosition, direction, targets[i]);
+			possibleResult.triangleIndex = i;
+			if (possibleResult.distance < result.distance) {
+				result = possibleResult;
+			}
 		}
 	}
 
@@ -479,7 +485,7 @@ void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingW
 	for (int i = 0; i < WIDTH; i++) {
 		for (int j = 0; j < HEIGHT; j++) {
 			// Fire a ray into the scene...
-			glm::vec3 direction = { (i - WIDTH/2), (HEIGHT/2 - j), -cam.focalLength};
+			glm::vec3 direction = { i - WIDTH/2, HEIGHT/2 - j, -cam.focalLength};
 			direction = glm::normalize(direction);
 			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
 
@@ -492,9 +498,10 @@ void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingW
 				glm::vec3 pointToLightNorm = glm::normalize(pointToLight);
 				RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
 					glm::normalize(pointToLight),
-					model);
+					model,
+					intersection.triangleIndex);
 
-				if ( ( lightIntersection.triangleIndex != intersection.triangleIndex ) &&
+				if (
 					( lightIntersection.distance < glm::length(pointToLight) ) ) {
 					// If not, make shadow.
 					colour = Colour(0, 0, 0).getPackedColour();
@@ -574,7 +581,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	RendererState state;
-	state.renderMode = RASTERISED;
+	state.renderMode = RAYTRACED;
 	state.orbiting = false;
 
 	Camera mainCamera;
