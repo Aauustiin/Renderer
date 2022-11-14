@@ -176,7 +176,7 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 vertexPos, DrawingWindow& windo
 	cameraSpaceVertex.y *= window.scale;
 
 	// Formula taken from the worksheet.
-	float u =  WIDTH - (cam.focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z) + (window.width / 2));
+	float u = WIDTH / 2 - (cam.focalLength * (cameraSpaceVertex.x / cameraSpaceVertex.z));
 	float v = cam.focalLength * (cameraSpaceVertex.y / cameraSpaceVertex.z) + (window.height / 2);
 	return CanvasPoint(u, v, cameraSpaceVertex.z);
 }
@@ -242,7 +242,7 @@ glm::vec3 getCenter(std::vector<ModelTriangle> model) {
 
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, DrawingWindow& window, bool useDepth = true) {
 	std::vector<CanvasPoint> line = getLine(from, to);
-	uint32_t c = (255 << 24) + (int(colour.red) << 16) + (int(colour.green) << 8) + int(colour.blue);
+	uint32_t c = colour.getPackedColour();
 	for (int i = 0; i < line.size(); i++) {
 		useDepth ? window.setPixelColour(line[i].x, line[i].y, line[i].depth, c) : window.setPixelColour(line[i].x, line[i].y, c);
 	}
@@ -444,6 +444,25 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition, glm::vec
 	return result;
 }
 
+void rayTracedRender(std::vector<ModelTriangle> model, DrawingWindow& window, camera cam) {
+	for (int i = 0; i < model.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			model[i].vertices[j] = cam.orientation * (model[i].vertices[j] - cam.position);
+			model[i].vertices[j].x *= window.scale;
+			model[i].vertices[j].y *= window.scale;
+		}
+	}
+	for (int i = 0; i < WIDTH; i++) {
+		for (int j = 0; j < HEIGHT; j++) {
+			glm::vec3 direction = { i - WIDTH/2, HEIGHT/2 - j, -cam.focalLength };
+			direction = glm::normalize(direction);
+			RayTriangleIntersection intersection = getClosestIntersection(cam.position, direction, model);
+			window.setPixelColour(i, j, intersection.intersectedTriangle.colour.getPackedColour());
+		}
+	}
+	std::cout << "Done" << '\n';
+}
+
 // MAIN LOOP
 
 void handleEvent(SDL_Event event, DrawingWindow& window, camera* cam) {
@@ -520,23 +539,21 @@ int main(int argc, char* argv[]) {
 	std::string objFilepath = "cornell-box.obj";
 	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
 
-	RayTriangleIntersection testIntersection = getClosestIntersection(mainCamera.position, glm::vec3(0, 0, -1), cornellBox);
-	std::cout << testIntersection << '\n';
-	rasterisedRender(std::vector<ModelTriangle>{testIntersection.intersectedTriangle}, window, mainCamera);
+	rayTracedRender(cornellBox, window, mainCamera);
+	//rasterisedRender(cornellBox, window, mainCamera);
 
 	while (true) {
-		window.clearPixels();
+		//window.clearPixels();
 
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera);
 
 		// draw() {
 
-		rasterisedRender(cornellBox, window, mainCamera);
 
 		// }
 
-		mainCamera.position = rotateAbout(mainCamera.position, glm::vec3(0, 0, 0), glm::vec3(0, -CAMERA_MOVE_SPEED / 10, 0));
-		mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
+		//mainCamera.position = rotateAbout(mainCamera.position, glm::vec3(0, 0, 0), glm::vec3(0, -CAMERA_MOVE_SPEED / 10, 0));
+		//mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
 
 		window.renderFrame();
 	}

@@ -7,7 +7,7 @@ Colour::Colour(std::string n, int r, int g, int b) :
 		name(std::move(n)),
 		red(r), green(g), blue(b) {}
 uint32_t Colour::getPackedColour() {
-	uint32_t packedColour = (255 << 24) + (255 << red) + (255 << green) + blue;
+	uint32_t packedColour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 	return packedColour;
 }
 
