@@ -32,6 +32,11 @@ enum RenderMode {
 	RAYTRACED
 };
 
+enum LightingMode {
+	HARD,
+	PROXIMITY
+};
+
 struct Camera {
 	glm::vec3 position;
 	glm::mat3 orientation;
@@ -40,6 +45,7 @@ struct Camera {
 
 struct RendererState {
 	RenderMode renderMode;
+	LightingMode lightingMode;
 	bool orbiting;
 };
 
@@ -448,6 +454,7 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 	glm::vec3 direction,
 	std::vector<ModelTriangle> targets,
 	int indexBlacklist = std::numeric_limits<int>::max()) {
+
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
 		ModelTriangle(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), Colour(0, 0, 0)),
@@ -466,13 +473,47 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 	return result;
 }
 
-void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingWindow& window, Camera cam) {
-	// Transform light into camera space.
+Colour hardShadowLighting(RayTriangleIntersection intersection, 
+	std::vector<ModelTriangle> model, 
+	glm::vec3 light) {
+	Colour colour;
+
+	glm::vec3 pointToLight = light - intersection.intersectionPoint;
+	RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
+		glm::normalize(pointToLight),
+		model,
+		intersection.triangleIndex); // This argument tells getClosestIntersection to ignore this index.
+
+	if (lightIntersection.distance < glm::length(pointToLight)) {
+		// If not, make shadow.
+		colour = Colour(0, 0, 0);
+	}
+	else {
+		// If so, make colour!
+		colour = intersection.intersectedTriangle.colour;
+	}
+	
+	return colour;
+}
+
+Colour proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 10000) {
+	float distance = glm::length(intersection.intersectionPoint - light);
+	float intensity = glm::clamp(strength / (distance * distance), 0.0f, 1.0f);
+	return Colour(std::round(intersection.intersectedTriangle.colour.red *= intensity),
+		std::round(intersection.intersectedTriangle.colour.green *= intensity),
+		std::round(intersection.intersectedTriangle.colour.blue *= intensity));
+}
+
+void rayTracedRender(std::vector<ModelTriangle> model,
+	glm::vec3 light,
+	DrawingWindow& window,
+	Camera cam, 
+	LightingMode lightingMode) {
+
 	light = cam.orientation * (light - cam.position);
 	light.x *= window.scale;
 	light.y *= window.scale;
 
-	// Transform triangles into camera space.
 	for (int i = 0; i < model.size(); i++) {
 		for (int j = 0; j < 3; j++) {
 			model[i].vertices[j] = cam.orientation * (model[i].vertices[j] - cam.position);
@@ -481,37 +522,30 @@ void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingW
 		}
 	}
 
-	// For each pixel...
 	for (int i = 0; i < WIDTH; i++) {
 		for (int j = 0; j < HEIGHT; j++) {
-			// Fire a ray into the scene...
+
 			glm::vec3 direction = { i - WIDTH/2, HEIGHT/2 - j, -cam.focalLength};
 			direction = glm::normalize(direction);
 			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
 
-			uint32_t colour;
+			Colour colour;
 			if (intersection.distance == std::numeric_limits<float>::max()) 
-				colour = Colour(0, 0, 0).getPackedColour(); // This ray hit nothing.
+				colour = Colour(0, 0, 0);
 			else {
-				// This ray hit something, check if light can reach it...
-				glm::vec3 pointToLight = light - intersection.intersectionPoint;
-				glm::vec3 pointToLightNorm = glm::normalize(pointToLight);
-				RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
-					glm::normalize(pointToLight),
-					model,
-					intersection.triangleIndex);
-
-				if (
-					( lightIntersection.distance < glm::length(pointToLight) ) ) {
-					// If not, make shadow.
-					colour = Colour(0, 0, 0).getPackedColour();
-				}
-				else {
-					// If so, make colour!
-					colour = intersection.intersectedTriangle.colour.getPackedColour();
+				switch (lightingMode) {
+					case HARD:
+						colour = hardShadowLighting(intersection, model, light);
+						break;
+					case PROXIMITY:
+						colour = proximityLighting(intersection, light);
+						break;
+					default:
+						colour = Colour(0, 0, 0);
+						break;
 				}
 			}
-			window.setPixelColour(i, j, colour);
+			window.setPixelColour(i, j, colour.getPackedColour());
 		}
 	}
 }
@@ -520,54 +554,60 @@ void rayTracedRender(std::vector<ModelTriangle> model, glm::vec3 light, DrawingW
 
 void handleEvent(SDL_Event event, DrawingWindow& window, Camera* cam, RendererState* state) {
 	if (event.type == SDL_KEYDOWN) {
-		if (event.key.keysym.sym == SDLK_a) { 
-			((*cam)).position = (*cam).position + glm::vec3(-CAMERA_MOVE_SPEED, 0, 0); // Translate Camera Left
-		}
-		else if (event.key.keysym.sym == SDLK_d) { 
-			(*cam).position = (*cam).position + glm::vec3(CAMERA_MOVE_SPEED, 0, 0); // Translate Camera Right
-		}
-		else if (event.key.keysym.sym == SDLK_w) { 
-			(*cam).position = (*cam).position + glm::vec3(0, 0, -CAMERA_MOVE_SPEED); // Translate Camera Forward
-		}
-		else if (event.key.keysym.sym == SDLK_s) { 
-			(*cam).position = (*cam).position + glm::vec3(0, 0, CAMERA_MOVE_SPEED); // Translate Camera Back
-		}
-		else if (event.key.keysym.sym == SDLK_SPACE) { 
-			(*cam).position = (*cam).position + glm::vec3(0, CAMERA_MOVE_SPEED, 0); // Translate Camera Up
-		}
-		else if (event.key.keysym.sym == SDLK_LCTRL) { 
-			(*cam).position = (*cam).position + glm::vec3(0, -CAMERA_MOVE_SPEED, 0); // Translate Camera Down
-		}
-		else if (event.key.keysym.sym == SDLK_LEFT) {
-			glm::vec3 rotation = glm::vec3(0, CAMERA_ROTATE_SPEED, 0); // Rotate Camera Left
-			(*cam).orientation = rotate((*cam).orientation, rotation);
-		}
-		else if (event.key.keysym.sym == SDLK_RIGHT) { 
-			glm::vec3 rotation = glm::vec3(0, -CAMERA_ROTATE_SPEED, 0); // Rotate Camera Right
-			(*cam).orientation = rotate((*cam).orientation, rotation);
-		}
-		else if (event.key.keysym.sym == SDLK_UP) { 
-			glm::vec3 rotation = glm::vec3(CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Up
-			(*cam).orientation = rotate((*cam).orientation, rotation);
-		}
-		else if (event.key.keysym.sym == SDLK_DOWN) { 
-			glm::vec3 rotation = glm::vec3(-CAMERA_ROTATE_SPEED, 0, 0); // Rotate Camera Down
-			(*cam).orientation = rotate((*cam).orientation, rotation);
-		}
-		else if (event.key.keysym.sym == SDLK_1) {
-			(*state).renderMode = POINTCLOUD;
-		}
-		else if (event.key.keysym.sym == SDLK_2) {
-			(*state).renderMode = WIREFRAME;
-		}
-		else if (event.key.keysym.sym == SDLK_3) {
-			(*state).renderMode = RASTERISED;
-		}
-		else if (event.key.keysym.sym == SDLK_4) {
-			(*state).renderMode = RAYTRACED;
-		}
-		else if (event.key.keysym.sym == SDLK_o) {
-			(*state).orbiting = !(*state).orbiting;
+		switch (event.key.keysym.sym) {
+			case SDLK_a:
+				((*cam)).position = (*cam).position + glm::vec3(-CAMERA_MOVE_SPEED, 0, 0);
+				break;
+			case SDLK_d:
+				(*cam).position = (*cam).position + glm::vec3(CAMERA_MOVE_SPEED, 0, 0);
+				break;
+			case SDLK_w:
+				(*cam).position = (*cam).position + glm::vec3(0, 0, -CAMERA_MOVE_SPEED);
+				break;
+			case SDLK_s:
+				(*cam).position = (*cam).position + glm::vec3(0, 0, CAMERA_MOVE_SPEED);
+				break;
+			case SDLK_SPACE:
+				(*cam).position = (*cam).position + glm::vec3(0, CAMERA_MOVE_SPEED, 0);
+				break;
+			case SDLK_LCTRL:
+				(*cam).position = (*cam).position + glm::vec3(0, -CAMERA_MOVE_SPEED, 0);
+				break;
+			case SDLK_LEFT:
+				(*cam).orientation = rotate((*cam).orientation, glm::vec3(0, CAMERA_ROTATE_SPEED, 0));
+				break;
+			case SDLK_RIGHT:
+				(*cam).orientation = rotate((*cam).orientation, glm::vec3(0, -CAMERA_ROTATE_SPEED, 0));
+				break;
+			case SDLK_UP:
+				(*cam).orientation = rotate((*cam).orientation, glm::vec3(CAMERA_ROTATE_SPEED, 0, 0));
+				break;
+			case SDLK_DOWN:
+				(*cam).orientation = rotate((*cam).orientation, glm::vec3(-CAMERA_ROTATE_SPEED, 0, 0));
+				break;
+			case SDLK_o:
+				(*state).orbiting = !(*state).orbiting;
+				break;
+			case SDLK_1:
+				(*state).renderMode = POINTCLOUD;
+				break;
+			case SDLK_2:
+				(*state).renderMode = WIREFRAME;
+				break;
+			case SDLK_3:
+				(*state).renderMode = RASTERISED;
+				break;
+			case SDLK_4:
+				(*state).renderMode = RAYTRACED;
+				break;
+			case SDLK_5:
+				(*state).lightingMode = HARD;
+				break;
+			case SDLK_6:
+				(*state).lightingMode = PROXIMITY;
+				break;
+			default:
+				break;
 		}
 	}
 	else if (event.type == SDL_MOUSEBUTTONDOWN) {
@@ -583,6 +623,7 @@ int main(int argc, char* argv[]) {
 	RendererState state;
 	state.renderMode = RAYTRACED;
 	state.orbiting = false;
+	state.lightingMode = PROXIMITY;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
@@ -591,7 +632,7 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
-	glm::vec3 lightPosition = {0.0, 0.85, 0.0};
+	glm::vec3 lightPosition = {0.0, 0.8, 0.0};
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
@@ -615,7 +656,7 @@ int main(int argc, char* argv[]) {
 				rasterisedRender(cornellBox, window, mainCamera);
 				break;
 			case RAYTRACED:
-				rayTracedRender(cornellBox, lightPosition, window, mainCamera);
+				rayTracedRender(cornellBox, lightPosition, window, mainCamera, state.lightingMode);
 				break;
 		}
 
