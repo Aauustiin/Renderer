@@ -559,7 +559,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						colour = proximityLighting(intersection, light);
 						break;
 					case INCIDENCE:
-						colour = incidenceLighting(intersection, light);
+						colour = incidenceLighting(intersection, light, 25);
 						break;
 					default:
 						colour = Colour(0, 0, 0);
@@ -653,7 +653,7 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
-	glm::vec3 lightPosition = {0.0, 0.8, 0.0};
+	glm::vec3 lightPosition = {0.0, 0.8, 1.0};
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
