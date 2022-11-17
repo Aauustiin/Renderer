@@ -139,7 +139,7 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 		glm::vec3 v0toV1 = triangle.vertices[1] - triangle.vertices[0];
 		glm::vec3 v0toV2 = triangle.vertices[2] - triangle.vertices[0];
 		glm::vec3 normal = glm::cross(v0toV1, v0toV2);
-		triangle.normal = normal;
+		triangle.normal = glm::normalize(normal);
 		result.push_back(triangle);
 	}
 
@@ -507,8 +507,7 @@ Colour hardShadowLighting(RayTriangleIntersection intersection,
 }
 
 Colour proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
-	glm::vec3 unscaledPoint = intersection.intersectionPoint;
-	float distance = glm::length(unscaledPoint - light);
+	float distance = glm::length(intersection.intersectionPoint - light);
 	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
 	return Colour(std::round(intersection.intersectedTriangle.colour.red * intensity),
 		std::round(intersection.intersectedTriangle.colour.green * intensity),
@@ -516,11 +515,15 @@ Colour proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, 
 }
 
 Colour incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
+	// Angle of incidence lighting.
+	glm::vec3 pointToLight = glm::normalize(light - intersection.intersectionPoint);
+	float similarity = std::max(glm::dot(pointToLight, intersection.intersectedTriangle.normal), 0.0f);
+	// Proximity Lighting
 	float distance = glm::length(intersection.intersectionPoint - light);
-	float intensity = glm::clamp(strength / (4 * PI * distance * distance), 0.0, 1.0);
-	return Colour(std::round(intersection.intersectedTriangle.colour.red * intensity),
-		std::round(intersection.intersectedTriangle.colour.green * intensity),
-		std::round(intersection.intersectedTriangle.colour.blue * intensity));
+	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
+	return Colour(std::round(intersection.intersectedTriangle.colour.red * similarity * intensity),
+		std::round(intersection.intersectedTriangle.colour.green * similarity * intensity),
+		std::round(intersection.intersectedTriangle.colour.blue * similarity * intensity));
 }
 
 void rayTracedRender(std::vector<ModelTriangle> model,
@@ -556,7 +559,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						colour = proximityLighting(intersection, light);
 						break;
 					case INCIDENCE:
-						colour = proximityLighting(intersection, light);
+						colour = incidenceLighting(intersection, light);
 						break;
 					default:
 						colour = Colour(0, 0, 0);
@@ -641,7 +644,7 @@ int main(int argc, char* argv[]) {
 	RendererState state;
 	state.renderMode = RAYTRACED;
 	state.orbiting = false;
-	state.lightingMode = PROXIMITY;
+	state.lightingMode = INCIDENCE;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
