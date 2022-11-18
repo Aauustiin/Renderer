@@ -36,7 +36,8 @@ enum LightingMode {
 	HARD,
 	PROXIMITY,
 	INCIDENCE,
-	SPECULAR
+	SPECULAR,
+	AMBIENT
 };
 
 struct Camera {
@@ -522,6 +523,10 @@ float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, in
 	return reflectionSimilarity;
 }
 
+float ambientLighting(float currentIntensity, float addition = 0.5) {
+	return std::min(currentIntensity + addition, 1.0f);
+}
+
 void rayTracedRender(std::vector<ModelTriangle> model,
 	glm::vec3 light,
 	DrawingWindow& window,
@@ -562,6 +567,12 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						intensity = specularLighting(intersection, light);
 						intensity *= incidenceLighting(intersection, light);
 						intensity *= proximityLighting(intersection, light);
+						break;
+					case AMBIENT:
+						intensity = specularLighting(intersection, light);
+						intensity *= incidenceLighting(intersection, light);
+						intensity *= proximityLighting(intersection, light);
+						intensity = ambientLighting(intensity);
 						break;
 					default:
 						intensity = 1;
@@ -635,6 +646,9 @@ void handleEvent(SDL_Event event, DrawingWindow& window, Camera* cam, RendererSt
 			case SDLK_7:
 				(*state).lightingMode = SPECULAR;
 				break;
+			case SDLK_8:
+				(*state).lightingMode = AMBIENT;
+				break;
 			default:
 				break;
 		}
@@ -652,7 +666,7 @@ int main(int argc, char* argv[]) {
 	RendererState state;
 	state.renderMode = RAYTRACED;
 	state.orbiting = false;
-	state.lightingMode = SPECULAR;
+	state.lightingMode = AMBIENT;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
