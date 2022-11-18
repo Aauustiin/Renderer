@@ -484,7 +484,7 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 	return result;
 }
 
-Colour hardShadowLighting(RayTriangleIntersection intersection, 
+float hardShadowLighting(RayTriangleIntersection intersection, 
 	std::vector<ModelTriangle> model, 
 	glm::vec3 light) {
 	Colour colour;
@@ -493,64 +493,33 @@ Colour hardShadowLighting(RayTriangleIntersection intersection,
 	RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
 		glm::normalize(pointToLight),
 		model,
-		intersection.triangleIndex); // This argument tells getClosestIntersection to ignore this index.
+		intersection.triangleIndex);
 
-	if (lightIntersection.distance < glm::length(pointToLight)) {
-		// If not, make shadow.
-		colour = Colour(0, 0, 0);
-	}
-	else {
-		// If so, make colour!
-		colour = intersection.intersectedTriangle.colour;
-	}
-	
-	return colour;
+	float intensity = lightIntersection.distance < glm::length(pointToLight) ? 0 : 1;
+	return intensity;
 }
 
-Colour proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
+float proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
 	float distance = glm::length(intersection.intersectionPoint - light);
 	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
-	return Colour(std::round(intersection.intersectedTriangle.colour.red * intensity),
-		std::round(intersection.intersectedTriangle.colour.green * intensity),
-		std::round(intersection.intersectedTriangle.colour.blue * intensity));
+	return intensity;
 }
 
-Colour incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
-	// Angle of incidence lighting
+float incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light) {
 	glm::vec3 pointToLight = glm::normalize(light - intersection.intersectionPoint);
 	float similarity = std::max(glm::dot(pointToLight, intersection.intersectedTriangle.normal), 0.0f);
-	// Proximity Lighting
-	float distance = glm::length(intersection.intersectionPoint - light);
-	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
-	return Colour(std::round(intersection.intersectedTriangle.colour.red * similarity * intensity),
-		std::round(intersection.intersectedTriangle.colour.green * similarity * intensity),
-		std::round(intersection.intersectedTriangle.colour.blue * similarity * intensity));
+	return similarity;
 }
 
-Colour specularLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5, int specularExponent = 64) {
-	glm::vec3 pointToLight = light - intersection.intersectionPoint;
+float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, int specularExponent = 64) {
+	glm::vec3 unitLightToPoint = -glm::normalize(light - intersection.intersectionPoint);
 	glm::vec3 normal = intersection.intersectedTriangle.normal;
-
-	glm::vec3 unitLightToPoint = -glm::normalize(pointToLight);
-	glm::vec3 unitPointToCamera = glm::normalize(intersection.intersectionPoint);
-	
 	glm::vec3 reflection = unitLightToPoint - (2.0f * normal * glm::dot(unitLightToPoint, normal));
-	glm::vec3 unitReflection = glm::normalize(reflection);
 
-	float reflectionSimilarity = -glm::dot(unitReflection, unitPointToCamera);
-
-	// Reflection similarity < 0 means that the reflection is going away from the camera
+	float reflectionSimilarity = -glm::dot(glm::normalize(reflection), glm::normalize(intersection.intersectionPoint));
 	reflectionSimilarity = reflectionSimilarity < 0 ? 0 : reflectionSimilarity;
 	reflectionSimilarity = std::pow(reflectionSimilarity, specularExponent);
-	
-	// Angle of incidence lighting
-	float similarity = std::max(glm::dot(pointToLight, intersection.intersectedTriangle.normal), 0.0f);
-	// Proximity Lighting
-	float distance = glm::length(intersection.intersectionPoint - light);
-	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
-	return Colour(std::round(intersection.intersectedTriangle.colour.red * reflectionSimilarity),
-		std::round(intersection.intersectedTriangle.colour.green * reflectionSimilarity),
-		std::round(intersection.intersectedTriangle.colour.blue * reflectionSimilarity));
+	return reflectionSimilarity;
 }
 
 void rayTracedRender(std::vector<ModelTriangle> model,
@@ -574,28 +543,34 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 			direction = glm::normalize(direction);
 			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
 
-			Colour colour;
+			float intensity;
 			if (intersection.distance == std::numeric_limits<float>::max()) 
-				colour = Colour(0, 0, 0);
+				intensity = 0;
 			else {
 				switch (lightingMode) {
 					case HARD:
-						colour = hardShadowLighting(intersection, model, light);
+						intensity = hardShadowLighting(intersection, model, light);
 						break;
 					case PROXIMITY:
-						colour = proximityLighting(intersection, light);
+						intensity = proximityLighting(intersection, light);
 						break;
 					case INCIDENCE:
-						colour = incidenceLighting(intersection, light, 25);
+						intensity = incidenceLighting(intersection, light);
+						intensity *= proximityLighting(intersection, light);
 						break;
 					case SPECULAR:
-						colour = specularLighting(intersection, light, 25);
+						intensity = specularLighting(intersection, light);
+						intensity *= incidenceLighting(intersection, light);
+						intensity *= proximityLighting(intersection, light);
 						break;
 					default:
-						colour = Colour(0, 0, 0);
+						intensity = 1;
 						break;
 				}
 			}
+			Colour colour = Colour(intersection.intersectedTriangle.colour.red * intensity,
+				intersection.intersectedTriangle.colour.green * intensity,
+				intersection.intersectedTriangle.colour.blue * intensity);
 			window.setPixelColour(i, j, colour.getPackedColour());
 		}
 	}
