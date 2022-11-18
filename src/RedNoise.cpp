@@ -512,7 +512,7 @@ float incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light) {
 	return similarity;
 }
 
-float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, int specularExponent = 64) {
+float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, int specularExponent = 128) {
 	glm::vec3 unitLightToPoint = -glm::normalize(light - intersection.intersectionPoint);
 	glm::vec3 normal = intersection.intersectedTriangle.normal;
 	glm::vec3 reflection = unitLightToPoint - (2.0f * normal * glm::dot(unitLightToPoint, normal));
@@ -523,7 +523,7 @@ float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, in
 	return reflectionSimilarity;
 }
 
-float ambientLighting(float currentIntensity, float addition = 0.5) {
+float ambientLighting(float currentIntensity, float addition = 0.2) {
 	return std::min(currentIntensity + addition, 1.0f);
 }
 
@@ -560,18 +560,21 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						intensity = proximityLighting(intersection, light);
 						break;
 					case INCIDENCE:
-						intensity = incidenceLighting(intersection, light);
-						intensity *= proximityLighting(intersection, light);
+						intensity = proximityLighting(intersection, light);
+						intensity *= incidenceLighting(intersection, light);
 						break;
 					case SPECULAR:
-						intensity = specularLighting(intersection, light);
+						intensity = proximityLighting(intersection, light);
 						intensity *= incidenceLighting(intersection, light);
-						intensity *= proximityLighting(intersection, light);
+						intensity += specularLighting(intersection, light);
+						intensity = glm::min(intensity, 1.0f);
 						break;
 					case AMBIENT:
-						intensity = specularLighting(intersection, light);
+						intensity = proximityLighting(intersection, light);
 						intensity *= incidenceLighting(intersection, light);
-						intensity *= proximityLighting(intersection, light);
+						intensity += specularLighting(intersection, light);
+						intensity = glm::min(intensity, 1.0f);
+						intensity *= hardShadowLighting(intersection, model, light);
 						intensity = ambientLighting(intensity);
 						break;
 					default:
@@ -675,7 +678,7 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
-	glm::vec3 lightPosition = {0.0, 0.8, 1.0};
+	glm::vec3 lightPosition = {0.5, 0.8, 1.0};
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
