@@ -35,7 +35,8 @@ enum RenderMode {
 enum LightingMode {
 	HARD,
 	PROXIMITY,
-	INCIDENCE
+	INCIDENCE,
+	SPECULAR
 };
 
 struct Camera {
@@ -515,7 +516,7 @@ Colour proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, 
 }
 
 Colour incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
-	// Angle of incidence lighting.
+	// Angle of incidence lighting
 	glm::vec3 pointToLight = glm::normalize(light - intersection.intersectionPoint);
 	float similarity = std::max(glm::dot(pointToLight, intersection.intersectedTriangle.normal), 0.0f);
 	// Proximity Lighting
@@ -524,6 +525,32 @@ Colour incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light, 
 	return Colour(std::round(intersection.intersectedTriangle.colour.red * similarity * intensity),
 		std::round(intersection.intersectedTriangle.colour.green * similarity * intensity),
 		std::round(intersection.intersectedTriangle.colour.blue * similarity * intensity));
+}
+
+Colour specularLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5, int specularExponent = 64) {
+	glm::vec3 pointToLight = light - intersection.intersectionPoint;
+	glm::vec3 normal = intersection.intersectedTriangle.normal;
+
+	glm::vec3 unitLightToPoint = -glm::normalize(pointToLight);
+	glm::vec3 unitPointToCamera = glm::normalize(intersection.intersectionPoint);
+	
+	glm::vec3 reflection = unitLightToPoint - (2.0f * normal * glm::dot(unitLightToPoint, normal));
+	glm::vec3 unitReflection = glm::normalize(reflection);
+
+	float reflectionSimilarity = -glm::dot(unitReflection, unitPointToCamera);
+
+	// Reflection similarity < 0 means that the reflection is going away from the camera
+	reflectionSimilarity = reflectionSimilarity < 0 ? 0 : reflectionSimilarity;
+	reflectionSimilarity = std::pow(reflectionSimilarity, specularExponent);
+	
+	// Angle of incidence lighting
+	float similarity = std::max(glm::dot(pointToLight, intersection.intersectedTriangle.normal), 0.0f);
+	// Proximity Lighting
+	float distance = glm::length(intersection.intersectionPoint - light);
+	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
+	return Colour(std::round(intersection.intersectedTriangle.colour.red * reflectionSimilarity),
+		std::round(intersection.intersectedTriangle.colour.green * reflectionSimilarity),
+		std::round(intersection.intersectedTriangle.colour.blue * reflectionSimilarity));
 }
 
 void rayTracedRender(std::vector<ModelTriangle> model,
@@ -560,6 +587,9 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						break;
 					case INCIDENCE:
 						colour = incidenceLighting(intersection, light, 25);
+						break;
+					case SPECULAR:
+						colour = specularLighting(intersection, light, 25);
 						break;
 					default:
 						colour = Colour(0, 0, 0);
@@ -627,6 +657,9 @@ void handleEvent(SDL_Event event, DrawingWindow& window, Camera* cam, RendererSt
 			case SDLK_6:
 				(*state).lightingMode = PROXIMITY;
 				break;
+			case SDLK_7:
+				(*state).lightingMode = SPECULAR;
+				break;
 			default:
 				break;
 		}
@@ -644,7 +677,7 @@ int main(int argc, char* argv[]) {
 	RendererState state;
 	state.renderMode = RAYTRACED;
 	state.orbiting = false;
-	state.lightingMode = INCIDENCE;
+	state.lightingMode = SPECULAR;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
