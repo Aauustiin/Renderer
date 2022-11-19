@@ -37,7 +37,9 @@ enum LightingMode {
 	PROXIMITY,
 	INCIDENCE,
 	SPECULAR,
-	AMBIENT
+	AMBIENT,
+	GOURAUD,
+	PHONG
 };
 
 struct Camera {
@@ -82,67 +84,83 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 
 	std::ifstream inputStream(filepath, std::ifstream::binary);
 	std::string nextLine;
+
 	std::vector<glm::vec3> vertices = {};
-	std::vector<std::array<int, 3>> faces = {};
-	std::vector<Colour> colours = {};
+	std::vector<std::vector<int>> faces = {}; // The indices of all vertices that are part of each face.
+	std::vector<std::string> colours = {}; // The names of colours for each face.
 	std::vector<ModelTriangle> result = {};
 
-	std::getline(inputStream, nextLine); // The mtl bit at the top - should probably use this to reference mtl file rather than pass it in
+	std::string currentColour = "default";
+	palette["default"] = Colour(180, 180, 180);
 
-	std::getline(inputStream, nextLine); // Empty
+	// Stores references to all the faces that a given vertex is a part of.
+	std::unordered_map<int, std::vector<int>> vertexFaces;
 
 	while (!inputStream.eof()) {
 
-		// Each loop is one block of stuff.
-
-		std::getline(inputStream, nextLine); // Face Name
-
-		std::getline(inputStream, nextLine); // Colour
-		auto lineContents = split(nextLine, ' ');
-		Colour c = palette[lineContents[1]];
-
-		// Get vertices
 		std::getline(inputStream, nextLine);
-		while (nextLine[0] == 'v') {
-			auto lineContents = split(nextLine, ' ');
+		std::vector<std::string> lineContents = split(nextLine, ' ');
+
+		if (lineContents[0] == "v") {
 			float x = std::stof(lineContents[1]);
 			float y = std::stof(lineContents[2]);
 			float z = std::stof(lineContents[3]);
 			vertices.push_back(glm::vec3(x, y, z));
-			std::getline(inputStream, nextLine);
 		}
+		else if (lineContents[0] == "f") {
+			int currentFaceIndex = faces.size();
+			std::vector<int> vertices = {};
 
-		// Get faces
-		while (nextLine[0] == 'f') {
-			auto lineContents = split(nextLine, ' ');
-			lineContents[1][lineContents[1].size() - 1] = '\0';
-			lineContents[2][lineContents[2].size() - 1] = '\0';
-			lineContents[3][lineContents[3].size() - 2] = '\0';
-			int faceIndexA = std::stoi(lineContents[1]);
-			int faceIndexB = std::stoi(lineContents[2]);
-			int faceIndexC = std::stoi(lineContents[3]);
-			faces.push_back({ faceIndexA, faceIndexB, faceIndexC });
-			colours.push_back(c);
-			std::getline(inputStream, nextLine);
+			for (int i = 1; i < lineContents.size(); i++) {
+				std::vector<std::string> vertexInfo = split(lineContents[i], '/');
+				int vertexIndex = std::stoi(vertexInfo[0]) - 1;
+				// if (vertexInfo.size() == 2) {
+				//     vertexInfo[1] is a texture point, deal with that
+				// }
+
+				vertices.push_back(vertexIndex);
+				vertexFaces[vertexIndex].push_back(currentFaceIndex);
+			}
+			colours.push_back(currentColour);
+			faces.push_back(vertices);
+		}
+		else if (lineContents[0] == "usemtl") {
+			currentColour = lineContents[1];
 		}
 	}
 
-	// Model is flipped horizontally because our coordinate space is different.
 	// Scale factor is applied.
 	for (int i = 0; i < vertices.size(); i++) {
-		vertices[i].x *= scaleFactor;
-		vertices[i].y *= scaleFactor;
-		vertices[i].z *= scaleFactor;
+		vertices[i] *= scaleFactor;
 	}
 
 	// Go through the data we've collected and create Model Triangles.
 	for (int i = 0; i < faces.size(); i++) {
-		ModelTriangle triangle = ModelTriangle(vertices[faces[i][0] - 1], vertices[faces[i][1] - 1], vertices[faces[i][2] - 1], colours[i]);
+		ModelTriangle triangle = ModelTriangle(vertices[faces[i][0]], 
+			vertices[faces[i][1]], 
+			vertices[faces[i][2]], 
+			palette[colours[i]]);
 		glm::vec3 v0toV1 = triangle.vertices[1] - triangle.vertices[0];
 		glm::vec3 v0toV2 = triangle.vertices[2] - triangle.vertices[0];
 		glm::vec3 normal = glm::cross(v0toV1, v0toV2);
 		triangle.normal = glm::normalize(normal);
 		result.push_back(triangle);
+	}
+
+	for (int i = 0; i < vertices.size(); i++) {
+		std::vector<int> faceIndices = vertexFaces[i];
+		glm::vec3 vertexNormal = { 0, 0, 0 };
+		for (int j = 0; j < faceIndices.size(); j++) {
+			vertexNormal += result[faceIndices[j]].normal;
+		}
+		vertexNormal /= faceIndices.size();
+		for (int j = 0; j < faceIndices.size(); j++) {
+			ModelTriangle triangle = result[faceIndices[j]];
+			int vertexNumber = 0;
+			if (j == faces[faceIndices[j]][1]) vertexNumber = 1;
+			else if (j == faces[faceIndices[j]][2]) vertexNumber = 2;
+			result[faceIndices[j]].vertexNormals[vertexNumber] = vertexNormal;
+		}
 	}
 
 	inputStream.close();
@@ -548,7 +566,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 			direction = glm::normalize(direction);
 			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
 
-			float intensity;
+			float intensity = 1;
 			if (intersection.distance == std::numeric_limits<float>::max()) 
 				intensity = 0;
 			else {
@@ -577,8 +595,9 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						intensity *= hardShadowLighting(intersection, model, light);
 						intensity = ambientLighting(intensity);
 						break;
-					default:
-						intensity = 1;
+					case GOURAUD:
+						break;
+					case PHONG:
 						break;
 				}
 			}
@@ -652,6 +671,12 @@ void handleEvent(SDL_Event event, DrawingWindow& window, Camera* cam, RendererSt
 			case SDLK_8:
 				(*state).lightingMode = AMBIENT;
 				break;
+			case SDLK_9:
+				(*state).lightingMode = GOURAUD;
+				break;
+			case SDLK_0:
+				(*state).lightingMode = PHONG;
+				break;
 			default:
 				break;
 		}
@@ -667,7 +692,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	RendererState state;
-	state.renderMode = RAYTRACED;
+	state.renderMode = RASTERISED;
 	state.orbiting = false;
 	state.lightingMode = AMBIENT;
 
