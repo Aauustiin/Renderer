@@ -524,15 +524,18 @@ float proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, f
 	return intensity;
 }
 
-float incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light) {
+float incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light, glm::vec3 normal = {0, 0, 0}) {
+	if (normal == glm::vec3(0, 0, 0)) normal = intersection.intersectedTriangle.normal;
 	glm::vec3 pointToLight = glm::normalize(light - intersection.intersectionPoint);
-	float similarity = std::max(glm::dot(pointToLight, intersection.intersectedTriangle.normal), 0.0f);
+	float similarity = std::max(glm::dot(pointToLight, normal), 0.0f);
 	return similarity;
 }
 
-float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, int specularExponent = 128) {
+float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, int specularExponent = 128,
+	glm::vec3 normal = { 0, 0, 0 }) {
+
+	if (normal == glm::vec3(0, 0, 0)) normal = intersection.intersectedTriangle.normal;
 	glm::vec3 unitLightToPoint = -glm::normalize(light - intersection.intersectionPoint);
-	glm::vec3 normal = intersection.intersectedTriangle.normal;
 	glm::vec3 reflection = unitLightToPoint - (2.0f * normal * glm::dot(unitLightToPoint, normal));
 
 	float reflectionSimilarity = -glm::dot(glm::normalize(reflection), glm::normalize(intersection.intersectionPoint));
@@ -543,6 +546,64 @@ float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, in
 
 float ambientLighting(float currentIntensity, float addition = 0.2) {
 	return std::min(currentIntensity + addition, 1.0f);
+}
+
+float triangleArea(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2) {
+	std::array<glm::vec3, 3> edges;
+	edges[0] = v0 - v1;
+	edges[1] = v0 - v2;
+	edges[2] = v1 - v2;
+	// The base is the longest edge.
+	int base = 1;
+	if (glm::length(edges[base]) < glm::length(edges[1])) base = 1;
+	if (glm::length(edges[base]) < glm::length(edges[2])) base = 2;
+	// We pick one of the other edges
+	int arbitraryEdge = (base + 1) % 3;
+	// Do the calculation...
+	glm::vec3 height = edges[arbitraryEdge] - (base * glm::dot(edges[arbitraryEdge], edges[base]));
+	return (glm::length(edges[base]) * glm::length(height)) / 2;
+}
+
+float gouraurdLighting(RayTriangleIntersection intersection, float i0, float i1, float i2) {
+	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectedTriangle.vertices[2]);
+	float v0OppArea = triangleArea(intersection.intersectionPoint,
+		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectedTriangle.vertices[2]);
+	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectionPoint,
+		intersection.intersectedTriangle.vertices[2]);
+	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectionPoint);
+	v0OppArea /= entireArea;
+	v1OppArea /= entireArea;
+	v2OppArea /= entireArea;
+	float intensity = (i0 * v0OppArea) + (i1 * v1OppArea) + (i2 * v2OppArea);
+	return intensity;
+}
+
+glm::vec3 phongLighting(RayTriangleIntersection intersection) {
+	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectedTriangle.vertices[2]);
+	float v0OppArea = triangleArea(intersection.intersectionPoint,
+		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectedTriangle.vertices[2]);
+	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectionPoint,
+		intersection.intersectedTriangle.vertices[2]);
+	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectionPoint);
+	v0OppArea /= entireArea;
+	v1OppArea /= entireArea;
+	v2OppArea /= entireArea;
+	glm::vec3 normal = (intersection.intersectedTriangle.vertexNormals[0] * v0OppArea) +
+		(intersection.intersectedTriangle.vertexNormals[1] * v1OppArea) +
+		(intersection.intersectedTriangle.vertexNormals[2] * v2OppArea);
+	return normal;
 }
 
 void rayTracedRender(std::vector<ModelTriangle> model,
@@ -596,9 +657,44 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 						intensity = ambientLighting(intensity);
 						break;
 					case GOURAUD:
+					{
+						intensity = proximityLighting(intersection, light);
+						glm::vec3 v0 = intersection.intersectedTriangle.vertices[0];
+						glm::vec3 v1 = intersection.intersectedTriangle.vertices[1];
+						glm::vec3 v2 = intersection.intersectedTriangle.vertices[2];
+						float i0 = incidenceLighting(RayTriangleIntersection(v0,
+							intersection.distance,
+							intersection.intersectedTriangle,
+							intersection.triangleIndex), light,
+							intersection.intersectedTriangle.vertexNormals[0]);
+						float i1 = incidenceLighting(RayTriangleIntersection(v1,
+							intersection.distance,
+							intersection.intersectedTriangle,
+							intersection.triangleIndex), light,
+							intersection.intersectedTriangle.vertexNormals[1]);
+						float i2 = incidenceLighting(RayTriangleIntersection(v2,
+							intersection.distance,
+							intersection.intersectedTriangle,
+							intersection.triangleIndex), light,
+							intersection.intersectedTriangle.vertexNormals[2]);
+						intensity *= gouraurdLighting(intersection, i0, i1, i2);
+						intensity += specularLighting(intersection, light, 128);
+						intensity = glm::min(intensity, 1.0f);
+						intensity *= hardShadowLighting(intersection, model, light);
+						intensity = ambientLighting(intensity);
 						break;
+					}
 					case PHONG:
+					{
+						glm::vec3 normal = phongLighting(intersection);
+						intensity = proximityLighting(intersection, light);
+						intensity *= incidenceLighting(intersection, light, normal);
+						intensity += specularLighting(intersection, light, 128, normal);
+						intensity = glm::min(intensity, 1.0f);
+						intensity *= hardShadowLighting(intersection, model, light);
+						intensity = ambientLighting(intensity);
 						break;
+					}
 				}
 			}
 			Colour colour = Colour(intersection.intersectedTriangle.colour.red * intensity,
@@ -692,9 +788,9 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	RendererState state;
-	state.renderMode = RASTERISED;
+	state.renderMode = RAYTRACED;
 	state.orbiting = false;
-	state.lightingMode = AMBIENT;
+	state.lightingMode = GOURAUD;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
