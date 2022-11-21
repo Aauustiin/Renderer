@@ -22,3 +22,7 @@ glm::mat3 lookAt(glm::mat3 subjectOientation, glm::vec3 subjectPosition, glm::ve
 glm::vec3 getCenter(std::vector<ModelTriangle> model);
 
 void printVec3(glm::vec3 x);
+
+std::vector<std::string> split(const std::string& line, char delimiter);
+
+float triangleArea(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2);

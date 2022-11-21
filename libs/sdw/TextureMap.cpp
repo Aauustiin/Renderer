@@ -1,4 +1,5 @@
 #include "TextureMap.h"
+#include <Utilities.h>
 
 TextureMap::TextureMap() = default;
 TextureMap::TextureMap(const std::string &filename) {

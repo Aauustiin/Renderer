@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
 	RendererState state;
 	state.renderMode = WIREFRAME;
 	state.orbiting = false;
-	state.lightingMode = PHONG;
+	state.lightingMode = GOURAUD;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
@@ -117,13 +117,22 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
-	glm::vec3 lightPosition = {0.5, 0.8, 1.0};
+	glm::vec3 lightPosition = {0.5, 0.85, 1};
 
 	std::string mtlFilepath = "cornell-box.mtl";
 	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
-	//std::string objFilepath = "cornell-box.obj";
-	std::string objFilepath = "sphere.obj";
-	std::vector<ModelTriangle> cornellBox = readOBJ(objFilepath, palette, 0.35);
+	std::string cornellObjFilepath = "cornell-box.obj";
+	std::vector<ModelTriangle> cornellBox = readOBJ(cornellObjFilepath, palette, 0.35);
+	std::string sphereObjFilepath = "sphere.obj";
+	std::vector<ModelTriangle> sphere = readOBJ(sphereObjFilepath, palette, 0.75);
+	glm::vec3 sphereCenter = getCenter(sphere);
+	for (int i = 0; i < sphere.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			sphere[i].vertices[j].position.y -= sphereCenter.y;
+		}
+	}
+
+	std::vector<ModelTriangle> currentModel = sphere;
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera, &state);
@@ -133,16 +142,16 @@ int main(int argc, char* argv[]) {
 
 		switch (state.renderMode) {
 			case POINTCLOUD:
-				pointcloudRender(cornellBox, window, mainCamera);
+				pointcloudRender(currentModel, window, mainCamera);
 				break;
 			case WIREFRAME:
-				wireframeRender(cornellBox, window, mainCamera);
+				wireframeRender(currentModel, window, mainCamera);
 				break;
 			case RASTERISED:
-				rasterisedRender(cornellBox, window, mainCamera);
+				rasterisedRender(currentModel, window, mainCamera);
 				break;
 			case RAYTRACED:
-				rayTracedRender(cornellBox, lightPosition, window, mainCamera, state.lightingMode);
+				rayTracedRender(currentModel, lightPosition, window, mainCamera, state.lightingMode);
 				break;
 		}
 

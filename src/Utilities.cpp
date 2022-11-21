@@ -11,14 +11,15 @@ std::vector<float> interpolate(float from, float to, int numberOfValues) {
 
 std::vector<CanvasPoint> interpolate(CanvasPoint from, CanvasPoint to, int numberOfValues) {
 	std::vector<float> xs = interpolate(from.x, to.x, numberOfValues);
-	std::vector<float> tpXs = interpolate(from.texturePoint.x, to.texturePoint.x, numberOfValues);
+	std::vector<float> tpXs = interpolate(from.textureX, to.textureX, numberOfValues);
 	std::vector<float> ys = interpolate(from.y, to.y, numberOfValues);
-	std::vector<float> tpYs = interpolate(from.texturePoint.y, to.texturePoint.y, numberOfValues);
+	std::vector<float> tpYs = interpolate(from.textureY, to.textureY, numberOfValues);
 	std::vector<float> depths = interpolate(from.depth, to.depth, numberOfValues);
 	std::vector<CanvasPoint> res(numberOfValues);
 	for (int i = 0; i < numberOfValues; i++) {
 		res[i] = CanvasPoint(std::round(xs[i]), std::round(ys[i]), depths[i]);
-		res[i].texturePoint = TexturePoint(tpXs[i], tpYs[i]);
+		res[i].textureX = tpXs[i];
+		res[i].textureY = tpYs[i];
 	}
 	return res;
 }
@@ -80,9 +81,9 @@ glm::mat3 lookAt(glm::mat3 subjectOientation, glm::vec3 subjectPosition, glm::ve
 glm::vec3 getCenter(std::vector<ModelTriangle> model) {
 	glm::vec3 average = glm::vec3(0, 0, 0);
 	for (int i = 0; i < model.size(); i++) {
-		average += model[i].vertices[0];
-		average += model[i].vertices[1];
-		average += model[i].vertices[2];
+		average += model[i].vertices[0].position;
+		average += model[i].vertices[1].position;
+		average += model[i].vertices[2].position;
 	}
 	average /= (model.size() * 3);
 	return average;
@@ -90,4 +91,24 @@ glm::vec3 getCenter(std::vector<ModelTriangle> model) {
 
 void printVec3(glm::vec3 x) {
 	std::cout << "x: " << x.x << ", y: " << x.y << ", z: " << x.z << '\n';
+}
+
+std::vector<std::string> split(const std::string& line, char delimiter) {
+	auto haystack = line;
+	std::vector<std::string> tokens;
+	size_t pos;
+	while ((pos = haystack.find(delimiter)) != std::string::npos) {
+		tokens.push_back(haystack.substr(0, pos));
+		haystack.erase(0, pos + 1);
+	}
+	// Push the remaining chars onto the vector
+	tokens.push_back(haystack);
+	return tokens;
+}
+
+float triangleArea(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2) {
+	glm::vec3 AB = v1 - v0;
+	glm::vec3 AC = v2 - v0;
+	float area = glm::length(glm::cross(AB, AC)) / 2;
+	return area;
 }

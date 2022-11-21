@@ -1,6 +1,6 @@
-#ifndef OBJECTS_H
-#define OBJECTS_H
+#pragma once
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
 
@@ -36,9 +36,6 @@ struct RendererState {
 struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
-	// First number is the index of a face that has this vertex in it.
-	// Second number is the index of this vertex in the array of vertices for that triangle.
-	std::vector<std::array<int, 2>> faces;
+	glm::vec2 texturePoint;
+	float brightness;
 };
-
-#endif // !OBJECTS_H

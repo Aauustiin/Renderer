@@ -1,17 +1,18 @@
 #include <RayTriangleIntersection.h>
 #include <Raytracing.h>
+#include <Utilities.h>
 
 #define PI 3.14159265358979323846264338327950288
 
 RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direction, ModelTriangle target) {
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
-		ModelTriangle(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), Colour(0, 0, 0)),
+		ModelTriangle(Vertex(), Vertex(), Vertex(), Colour(0, 0, 0), glm::vec3(0, 0, 0)),
 		0);
 
-	glm::vec3 e0 = target.vertices[1] - target.vertices[0];
-	glm::vec3 e1 = target.vertices[2] - target.vertices[0];
-	glm::vec3 SPVector = startPosition - target.vertices[0];
+	glm::vec3 e0 = target.vertices[1].position - target.vertices[0].position;
+	glm::vec3 e1 = target.vertices[2].position - target.vertices[0].position;
+	glm::vec3 SPVector = startPosition - target.vertices[0].position;
 	glm::mat3 DEMatrix(-direction, e0, e1);
 	glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
 
@@ -35,7 +36,7 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
-		ModelTriangle(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), Colour(0, 0, 0)),
+		ModelTriangle(Vertex(), Vertex(), Vertex(), Colour(0, 0, 0), glm::vec3(0, 0, 0)),
 		0);
 
 	for (int i = 0; i < targets.size(); i++) {
@@ -51,10 +52,32 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 	return result;
 }
 
+// Returns the brightness of a point given the brightness of the 3 vertices of a triangle.
+float interpolateBrightness(RayTriangleIntersection intersection) {
+	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectedTriangle.vertices[2].position);
+	float v0OppArea = triangleArea(intersection.intersectionPoint,
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectedTriangle.vertices[2].position);
+	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectionPoint,
+		intersection.intersectedTriangle.vertices[2].position);
+	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectionPoint);
+	v0OppArea /= entireArea;
+	v1OppArea /= entireArea;
+	v2OppArea /= entireArea;
+	float brightness = (intersection.intersectedTriangle.vertices[0].brightness * v0OppArea) + 
+		(intersection.intersectedTriangle.vertices[1].brightness * v1OppArea) + 
+		(intersection.intersectedTriangle.vertices[2].brightness * v2OppArea);
+	return brightness;
+}
+
 float hardShadowLighting(RayTriangleIntersection intersection,
 	std::vector<ModelTriangle> model,
 	glm::vec3 light) {
-	Colour colour;
 
 	glm::vec3 pointToLight = light - intersection.intersectionPoint;
 	RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
@@ -64,6 +87,34 @@ float hardShadowLighting(RayTriangleIntersection intersection,
 
 	float intensity = lightIntersection.distance < glm::length(pointToLight) ? 0 : 1;
 	return intensity;
+}
+
+float vertexHardShadowLighting(RayTriangleIntersection intersection,
+	std::vector<ModelTriangle> model,
+	glm::vec3 light) {
+
+	glm::vec3 v0 = intersection.intersectedTriangle.vertices[0].position;
+	glm::vec3 v1 = intersection.intersectedTriangle.vertices[1].position;
+	glm::vec3 v2 = intersection.intersectedTriangle.vertices[2].position;
+
+	RayTriangleIntersection v0LightIntersection = getClosestIntersection(v0,
+		glm::normalize(light - v0),
+		model,
+		intersection.triangleIndex);
+	RayTriangleIntersection v1LightIntersection = getClosestIntersection(v0,
+		glm::normalize(light - v0),
+		model,
+		intersection.triangleIndex);
+	RayTriangleIntersection v2LightIntersection = getClosestIntersection(v0,
+		glm::normalize(light - v0),
+		model,
+		intersection.triangleIndex);
+
+	intersection.intersectedTriangle.vertices[0].brightness = hardShadowLighting(v0LightIntersection, model, light);
+	intersection.intersectedTriangle.vertices[1].brightness = hardShadowLighting(v0LightIntersection, model, light);
+	intersection.intersectedTriangle.vertices[2].brightness = hardShadowLighting(v0LightIntersection, model, light);
+
+	return interpolateBrightness(intersection);
 }
 
 float proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
@@ -96,25 +147,18 @@ float ambientLighting(float currentIntensity, float addition = 0.2) {
 	return std::min(currentIntensity + addition, 1.0f);
 }
 
-float triangleArea(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2) {
-	glm::vec3 AB = v1 - v0;
-	glm::vec3 AC = v2 - v0;
-	float area = glm::length(glm::cross(AB, AC)) / 2;
-	return area;
-}
-
 float gouraurdLighting(RayTriangleIntersection intersection, float i0, float i1, float i2) {
-	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0],
-		intersection.intersectedTriangle.vertices[1],
-		intersection.intersectedTriangle.vertices[2]);
+	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectedTriangle.vertices[2].position);
 	float v0OppArea = triangleArea(intersection.intersectionPoint,
-		intersection.intersectedTriangle.vertices[1],
-		intersection.intersectedTriangle.vertices[2]);
-	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectedTriangle.vertices[2].position);
+	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
 		intersection.intersectionPoint,
-		intersection.intersectedTriangle.vertices[2]);
-	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
-		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectedTriangle.vertices[2].position);
+	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectedTriangle.vertices[1].position,
 		intersection.intersectionPoint);
 	v0OppArea /= entireArea;
 	v1OppArea /= entireArea;
@@ -124,24 +168,24 @@ float gouraurdLighting(RayTriangleIntersection intersection, float i0, float i1,
 }
 
 glm::vec3 phongLighting(RayTriangleIntersection intersection) {
-	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0],
-		intersection.intersectedTriangle.vertices[1],
-		intersection.intersectedTriangle.vertices[2]);
+	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectedTriangle.vertices[2].position);
 	float v0OppArea = triangleArea(intersection.intersectionPoint,
-		intersection.intersectedTriangle.vertices[1],
-		intersection.intersectedTriangle.vertices[2]);
-	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
+		intersection.intersectedTriangle.vertices[1].position,
+		intersection.intersectedTriangle.vertices[2].position);
+	float v1OppArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
 		intersection.intersectionPoint,
-		intersection.intersectedTriangle.vertices[2]);
-	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0],
-		intersection.intersectedTriangle.vertices[1],
+		intersection.intersectedTriangle.vertices[2].position);
+	float v2OppArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
+		intersection.intersectedTriangle.vertices[1].position,
 		intersection.intersectionPoint);
 	v0OppArea /= entireArea;
 	v1OppArea /= entireArea;
 	v2OppArea /= entireArea;
-	glm::vec3 normal = (intersection.intersectedTriangle.vertexNormals[0] * v0OppArea) +
-		(intersection.intersectedTriangle.vertexNormals[1] * v1OppArea) +
-		(intersection.intersectedTriangle.vertexNormals[2] * v2OppArea);
+	glm::vec3 normal = (intersection.intersectedTriangle.vertices[0].normal * v0OppArea) +
+		(intersection.intersectedTriangle.vertices[1].normal * v1OppArea) +
+		(intersection.intersectedTriangle.vertices[2].normal * v2OppArea);
 	return normal;
 }
 
@@ -155,7 +199,23 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 
 	for (int i = 0; i < model.size(); i++) {
 		for (int j = 0; j < 3; j++) {
-			model[i].vertices[j] = cam.orientation * (model[i].vertices[j] - cam.position);
+			model[i].vertices[j].position = cam.orientation * (model[i].vertices[j].position - cam.position);
+		}
+	}
+
+	if (lightingMode == GOURAUD) {
+		for (int i = 0; i < model.size(); i++) {
+			for (int j = 0; j < 3; j++) {
+				glm::vec3 vertexPosition = model[i].vertices[j].position;
+				RayTriangleIntersection intersection = RayTriangleIntersection(vertexPosition,
+					glm::length(vertexPosition),
+					model[i],
+					i);
+				float brightness = proximityLighting(intersection, light);
+				brightness *= incidenceLighting(intersection, light);
+				// Should do hard shadow here too?
+				model[i].vertices[j].brightness = brightness;
+			}
 		}
 	}
 
@@ -197,29 +257,13 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 					break;
 				case GOURAUD:
 				{
-					intensity = proximityLighting(intersection, light);
-					glm::vec3 v0 = intersection.intersectedTriangle.vertices[0];
-					glm::vec3 v1 = intersection.intersectedTriangle.vertices[1];
-					glm::vec3 v2 = intersection.intersectedTriangle.vertices[2];
-					float i0 = incidenceLighting(RayTriangleIntersection(v0,
-						intersection.distance,
-						intersection.intersectedTriangle,
-						intersection.triangleIndex), light,
-						intersection.intersectedTriangle.vertexNormals[0]);
-					float i1 = incidenceLighting(RayTriangleIntersection(v1,
-						intersection.distance,
-						intersection.intersectedTriangle,
-						intersection.triangleIndex), light,
-						intersection.intersectedTriangle.vertexNormals[1]);
-					float i2 = incidenceLighting(RayTriangleIntersection(v2,
-						intersection.distance,
-						intersection.intersectedTriangle,
-						intersection.triangleIndex), light,
-						intersection.intersectedTriangle.vertexNormals[2]);
-					intensity *= gouraurdLighting(intersection, i0, i1, i2);
+					float i0 = intersection.intersectedTriangle.vertices[0].brightness;
+					float i1 = intersection.intersectedTriangle.vertices[1].brightness;
+					float i2 = intersection.intersectedTriangle.vertices[2].brightness;
+					intensity = gouraurdLighting(intersection, i0, i1, i2);
 					intensity += specularLighting(intersection, light, 256);
 					intensity = glm::min(intensity, 1.0f);
-					intensity *= hardShadowLighting(intersection, model, light);
+					intensity *= vertexHardShadowLighting(intersection, model, light);
 					intensity = ambientLighting(intensity);
 					break;
 				}
@@ -230,7 +274,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 					intensity *= incidenceLighting(intersection, light, normal);
 					intensity += specularLighting(intersection, light, 256, normal);
 					intensity = glm::min(intensity, 1.0f);
-					intensity *= hardShadowLighting(intersection, model, light);
+					intensity *= vertexHardShadowLighting(intersection, model, light);
 					intensity = ambientLighting(intensity);
 					break;
 				}

@@ -4,18 +4,14 @@
 #include <string>
 #include <array>
 #include "Colour.h"
-#include "TexturePoint.h"
+#include <Objects.h>
 
 struct ModelTriangle {
-	std::array<glm::vec3, 3> vertices{};
-	std::array<glm::vec3, 3> vertexNormals{};
-	std::array<TexturePoint, 3> texturePoints{};
+	std::array<Vertex, 3> vertices{};
 	Colour colour{};
 	glm::vec3 normal{};
 
 	ModelTriangle();
-	ModelTriangle(const glm::vec3 &v0, const glm::vec3 &v1, const glm::vec3 &v2, Colour trigColour);
-	ModelTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, Colour trigColour,
-		const glm::vec3& vn0, const glm::vec3& vn1, const glm::vec3& vn2);
+	ModelTriangle(Vertex v0, Vertex v1, Vertex v2, Colour c, glm::vec3 normal);
 	friend std::ostream &operator<<(std::ostream &os, const ModelTriangle &triangle);
 };

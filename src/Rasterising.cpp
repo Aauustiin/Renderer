@@ -112,63 +112,64 @@ void drawFilledTriangle(CanvasTriangle triangle, Colour colour, DrawingWindow& w
 	}
 }
 
-void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWindow& window) {
-	// Vertices are sorted such that v0 has the lowest y value, meaning it's the highest.
-	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
-	if (triangle.v1().y > triangle.v2().y) std::swap(triangle.v1(), triangle.v2());
-	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
-
-	std::vector<CanvasPoint> topToMiddle = getLine(triangle.v0(), triangle.v1());
-	std::vector<CanvasPoint> middleToBottom = getLine(triangle.v1(), triangle.v2());
-	std::vector<CanvasPoint> topToBottom = getLine(triangle.v0(), triangle.v2());
-
-	CanvasPoint middle;
-	for (int i = 0; i < topToBottom.size(); i++) {
-		if (topToBottom[i].y == triangle.v1().y) middle = topToBottom[i];
-	}
-
-	for (int i = triangle.v0().y; i < middle.y; i++) {
-
-		CanvasPoint point1;
-		for (int j = 0; j < topToMiddle.size(); j++) {
-			if (topToMiddle[j].y == i) point1 = topToMiddle[j];
-		}
-		CanvasPoint point2;
-		for (int j = 0; j < topToBottom.size(); j++) {
-			if (topToBottom[j].y == i) point2 = topToBottom[j];
-		}
-
-		std::vector<CanvasPoint> line = getLine(point1, point2);
-		for (int j = 0; j < line.size(); j++) {
-			int textureIndex = (line[j].texturePoint.y * texture.width) + line[j].texturePoint.x;
-			window.setPixelColour(line[j].x, line[j].y, texture.pixels[textureIndex]);
-		}
-	}
-	for (int i = middle.y; i <= triangle.v2().y; i++) {
-
-		CanvasPoint point1;
-		for (int j = 0; j < middleToBottom.size(); j++) {
-			if (middleToBottom[j].y == i) point1 = middleToBottom[j];
-		}
-		CanvasPoint point2;
-		for (int j = 0; j < topToBottom.size(); j++) {
-			if (topToBottom[j].y == i) point2 = topToBottom[j];
-		}
-
-		std::vector<CanvasPoint> line = getLine(point1, point2);
-		for (int j = 0; j < line.size(); j++) {
-			int textureIndex = (line[j].texturePoint.y * texture.width) + line[j].texturePoint.x;
-			window.setPixelColour(line[j].x, line[j].y, texture.pixels[textureIndex]);
-		}
-	}
-}
+// NEED TO REWRITE THIS TO USE GOOD FILLED TRIANGLE DRAWING
+//void drawTexturedTriangle(CanvasTriangle triangle, TextureMap texture, DrawingWindow& window) {
+//	// Vertices are sorted such that v0 has the lowest y value, meaning it's the highest.
+//	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
+//	if (triangle.v1().y > triangle.v2().y) std::swap(triangle.v1(), triangle.v2());
+//	if (triangle.v0().y > triangle.v1().y) std::swap(triangle.v0(), triangle.v1());
+//
+//	std::vector<CanvasPoint> topToMiddle = getLine(triangle.v0(), triangle.v1());
+//	std::vector<CanvasPoint> middleToBottom = getLine(triangle.v1(), triangle.v2());
+//	std::vector<CanvasPoint> topToBottom = getLine(triangle.v0(), triangle.v2());
+//
+//	CanvasPoint middle;
+//	for (int i = 0; i < topToBottom.size(); i++) {
+//		if (topToBottom[i].y == triangle.v1().y) middle = topToBottom[i];
+//	}
+//
+//	for (int i = triangle.v0().y; i < middle.y; i++) {
+//
+//		CanvasPoint point1;
+//		for (int j = 0; j < topToMiddle.size(); j++) {
+//			if (topToMiddle[j].y == i) point1 = topToMiddle[j];
+//		}
+//		CanvasPoint point2;
+//		for (int j = 0; j < topToBottom.size(); j++) {
+//			if (topToBottom[j].y == i) point2 = topToBottom[j];
+//		}
+//
+//		std::vector<CanvasPoint> line = getLine(point1, point2);
+//		for (int j = 0; j < line.size(); j++) {
+//			int textureIndex = (line[j].texturePoint.y * texture.width) + line[j].texturePoint.x;
+//			window.setPixelColour(line[j].x, line[j].y, texture.pixels[textureIndex]);
+//		}
+//	}
+//	for (int i = middle.y; i <= triangle.v2().y; i++) {
+//
+//		CanvasPoint point1;
+//		for (int j = 0; j < middleToBottom.size(); j++) {
+//			if (middleToBottom[j].y == i) point1 = middleToBottom[j];
+//		}
+//		CanvasPoint point2;
+//		for (int j = 0; j < topToBottom.size(); j++) {
+//			if (topToBottom[j].y == i) point2 = topToBottom[j];
+//		}
+//
+//		std::vector<CanvasPoint> line = getLine(point1, point2);
+//		for (int j = 0; j < line.size(); j++) {
+//			int textureIndex = (line[j].texturePoint.y * texture.width) + line[j].texturePoint.x;
+//			window.setPixelColour(line[j].x, line[j].y, texture.pixels[textureIndex]);
+//		}
+//	}
+//}
 
 void pointcloudRender(std::vector<ModelTriangle> model, DrawingWindow& window, Camera cam) {
 	uint32_t white = (255 << 24) + (255 << 16) + (255 << 8) + 255;
 
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
 		for (int j = 0; j < 3; j++) { // For each vertex in the triangle...
-			CanvasPoint point = getCanvasIntersectionPoint(model[i].vertices[j], window, cam); // Get intersection point...
+			CanvasPoint point = getCanvasIntersectionPoint(model[i].vertices[j].position, window, cam); // Get intersection point...
 			window.setPixelColour(point.x, point.y, white); // Set colour
 		}
 	}
@@ -176,9 +177,9 @@ void pointcloudRender(std::vector<ModelTriangle> model, DrawingWindow& window, C
 
 void wireframeRender(std::vector<ModelTriangle> model, DrawingWindow& window, Camera cam) {
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
-		CanvasPoint va = getCanvasIntersectionPoint(model[i].vertices[0], window, cam);
-		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1], window, cam);
-		CanvasPoint vc = getCanvasIntersectionPoint(model[i].vertices[2], window, cam);
+		CanvasPoint va = getCanvasIntersectionPoint(model[i].vertices[0].position, window, cam);
+		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1].position, window, cam);
+		CanvasPoint vc = getCanvasIntersectionPoint(model[i].vertices[2].position, window, cam);
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
 		drawStrokedTriangle(triangle, Colour(255, 255, 255), window);
 	}
@@ -186,9 +187,9 @@ void wireframeRender(std::vector<ModelTriangle> model, DrawingWindow& window, Ca
 
 void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, Camera cam) {
 	for (int i = 0; i < model.size(); i++) { // For each triangle in the model...
-		CanvasPoint va = getCanvasIntersectionPoint(model[i].vertices[0], window, cam);
-		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1], window, cam);
-		CanvasPoint vc = getCanvasIntersectionPoint(model[i].vertices[2], window, cam);
+		CanvasPoint va = getCanvasIntersectionPoint(model[i].vertices[0].position, window, cam);
+		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1].position, window, cam);
+		CanvasPoint vc = getCanvasIntersectionPoint(model[i].vertices[2].position, window, cam);
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
 		drawFilledTriangle(triangle, model[i].colour, window);
 	}
