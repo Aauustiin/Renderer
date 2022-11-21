@@ -24,7 +24,7 @@ find_package(SDL2 REQUIRED)
 
 include_directories(${SDL2_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
 include_directories(libs/sdw)
-include_directories(libs/utils)
+include_directories(src)
 
 add_executable(RedNoise
         libs/sdw/CanvasPoint.cpp
@@ -36,8 +36,9 @@ add_executable(RedNoise
         libs/sdw/TextureMap.cpp
         libs/sdw/TexturePoint.cpp
         libs/sdw/Utils.cpp
-        libs/utils/AustinUtils.cpp
-        src/RedNoise.cpp)
+        src/RedNoise.cpp
+        "src/Rasterising.cpp"
+        "src/Objects.h" "src/Utilities.cpp" "src/Parsing.cpp" "src/Raytracing.cpp" "src/Utilities.h" "src/Parsing.h" "src/Rasterising.h" "src/Raytracing.h")
 
 if (MSVC)
     target_compile_options(RedNoise
