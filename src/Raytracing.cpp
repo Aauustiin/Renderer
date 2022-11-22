@@ -1,13 +1,16 @@
 #include <RayTriangleIntersection.h>
 #include <Raytracing.h>
 #include <Utilities.h>
+#include <UniformColourMaterial.h>
 
 #define PI 3.14159265358979323846264338327950288
 
 RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direction, ModelTriangle target) {
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
-		ModelTriangle(Vertex(), Vertex(), Vertex(), Colour(0, 0, 0), glm::vec3(0, 0, 0)),
+		ModelTriangle(Vertex(), Vertex(), Vertex(),
+			&UniformColourMaterial(Colour(0, 0, 0)),
+			glm::vec3(0, 0, 0)),
 		0);
 
 	glm::vec3 e0 = target.vertices[1].position - target.vertices[0].position;
@@ -36,7 +39,9 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
-		ModelTriangle(Vertex(), Vertex(), Vertex(), Colour(0, 0, 0), glm::vec3(0, 0, 0)),
+		ModelTriangle(Vertex(), Vertex(), Vertex(), 
+			&UniformColourMaterial(Colour(0, 0, 0)), 
+			glm::vec3(0, 0, 0)),
 		0);
 
 	for (int i = 0; i < targets.size(); i++) {
@@ -119,8 +124,9 @@ float vertexHardShadowLighting(RayTriangleIntersection intersection,
 
 float proximityLighting(RayTriangleIntersection intersection, glm::vec3 light, float strength = 12.5) {
 	float distance = glm::length(intersection.intersectionPoint - light);
-	double intensity = std::min(strength / (4 * PI * distance * distance), 1.0);
-	return intensity;
+	float brightness = strength / (4 * PI * distance * distance);
+	brightness = std::min(brightness, 1.0f);
+	return brightness;
 }
 
 float incidenceLighting(RayTriangleIntersection intersection, glm::vec3 light, glm::vec3 normal = { 0, 0, 0 }) {
@@ -147,7 +153,7 @@ float ambientLighting(float currentIntensity, float addition = 0.2) {
 	return std::min(currentIntensity + addition, 1.0f);
 }
 
-float gouraurdLighting(RayTriangleIntersection intersection, float i0, float i1, float i2) {
+float gouraudLighting(RayTriangleIntersection intersection, float i0, float i1, float i2) {
 	float entireArea = triangleArea(intersection.intersectedTriangle.vertices[0].position,
 		intersection.intersectedTriangle.vertices[1].position,
 		intersection.intersectedTriangle.vertices[2].position);
@@ -211,9 +217,10 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 					glm::length(vertexPosition),
 					model[i],
 					i);
-				float brightness = proximityLighting(intersection, light);
-				brightness *= incidenceLighting(intersection, light);
-				// Should do hard shadow here too?
+				float brightness = proximityLighting(intersection, light, 5.0f);
+				brightness = incidenceLighting(intersection, light, model[i].vertices[j].normal);
+				//brightness += specularLighting(intersection, light, 256, model[i].vertices[j].normal);
+				//brightness = glm::min(brightness, 1.0f);
 				model[i].vertices[j].brightness = brightness;
 			}
 		}
@@ -257,14 +264,9 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 					break;
 				case GOURAUD:
 				{
-					float i0 = intersection.intersectedTriangle.vertices[0].brightness;
-					float i1 = intersection.intersectedTriangle.vertices[1].brightness;
-					float i2 = intersection.intersectedTriangle.vertices[2].brightness;
-					intensity = gouraurdLighting(intersection, i0, i1, i2);
-					intensity += specularLighting(intersection, light, 256);
-					intensity = glm::min(intensity, 1.0f);
-					intensity *= vertexHardShadowLighting(intersection, model, light);
-					intensity = ambientLighting(intensity);
+					intensity = interpolateBrightness(intersection);
+					//intensity *= vertexHardShadowLighting(intersection, model, light);
+					//intensity = ambientLighting(intensity);
 					break;
 				}
 				case PHONG:
@@ -280,9 +282,17 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 				}
 				}
 			}
-			Colour colour = Colour(intersection.intersectedTriangle.colour.red * intensity,
-				intersection.intersectedTriangle.colour.green * intensity,
-				intersection.intersectedTriangle.colour.blue * intensity);
+
+			Colour colour;
+			if (intersection.distance == std::numeric_limits<float>::max()) {
+				colour = Colour(0, 0, 0);
+			}
+			else {
+				colour = intersection.intersectedTriangle.GetColour(intersection.intersectionPoint);
+				colour.red *= intensity;
+				colour.blue *= intensity;
+				colour.green *= intensity;
+			}
 			window.setPixelColour(i, j, colour.getPackedColour());
 		}
 	}

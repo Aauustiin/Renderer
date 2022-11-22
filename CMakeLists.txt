@@ -35,10 +35,20 @@ add_executable(RedNoise
         libs/sdw/RayTriangleIntersection.cpp
         libs/sdw/TextureMap.cpp
         
-        
         src/RedNoise.cpp
         "src/Rasterising.cpp"
-        "src/Objects.h" "src/Utilities.cpp" "src/Parsing.cpp" "src/Raytracing.cpp" "src/Utilities.h" "src/Parsing.h" "src/Rasterising.h" "src/Raytracing.h")
+        "src/Objects.h"
+        "src/Utilities.cpp"
+        "src/Parsing.cpp"
+        "src/Raytracing.cpp"
+        "src/Utilities.h"
+        "src/Parsing.h"
+        "src/Rasterising.h"
+        "src/Raytracing.h"
+        "src/IMaterial.h"
+        "src/UniformColourMaterial.h"
+        "src/UniformColourMaterial.cpp"
+        "src/IMaterial.cpp" "src/TextureMaterial.h" "src/TextureMaterial.cpp")
 
 if (MSVC)
     target_compile_options(RedNoise

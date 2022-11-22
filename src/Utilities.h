@@ -26,3 +26,11 @@ void printVec3(glm::vec3 x);
 std::vector<std::string> split(const std::string& line, char delimiter);
 
 float triangleArea(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2);
+
+float triangleInterpolation(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2,
+	float a0, float a1, float a2,
+	glm::vec3 p);
+
+glm::vec2 triangleInterpolation(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2,
+	glm::vec2 a0, glm::vec2 a1, glm::vec2 a2,
+	glm::vec3 p);

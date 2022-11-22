@@ -112,3 +112,25 @@ float triangleArea(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2) {
 	float area = glm::length(glm::cross(AB, AC)) / 2;
 	return area;
 }
+
+float triangleInterpolation(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2,
+	float a0, float a1, float a2,
+	glm::vec3 p) {
+	float entireArea = triangleArea(v0, v1, v2);
+	float v0OppArea = triangleArea(p, v1, v2) / entireArea;
+	float v1OppArea = triangleArea(v0, p, v2) / entireArea;
+	float v2OppArea = triangleArea(v0, v1, p) / entireArea;
+	float result = a0 * v0OppArea + a1 * v1OppArea + a2 * v2OppArea;
+	return result;
+}
+
+glm::vec2 triangleInterpolation(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2,
+	glm::vec2 a0, glm::vec2 a1, glm::vec2 a2,
+	glm::vec3 p) {
+	float entireArea = triangleArea(v0, v1, v2);
+	float v0OppArea = triangleArea(p, v1, v2) / entireArea;
+	float v1OppArea = triangleArea(v0, p, v2) / entireArea;
+	float v2OppArea = triangleArea(v0, v1, p) / entireArea;
+	glm::vec2 result = a0 * v0OppArea + a1 * v1OppArea + a2 * v2OppArea;
+	return result;
+}

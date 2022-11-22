@@ -2,9 +2,10 @@
 #include <Parsing.h>
 #include <Utilities.h>
 #include <Objects.h>
+#include <UniformColourMaterial.h>
 
-std::unordered_map<std::string, Colour> readMTL(std::string& filepath) {
-	std::unordered_map<std::string, Colour> result = {};
+std::unordered_map<std::string, IMaterial*> readMTL(std::string& filepath) {
+	std::unordered_map<std::string, IMaterial*> result = {};
 	std::ifstream inputStream(filepath, std::ifstream::binary);
 	std::string nextLine;
 	while (!inputStream.eof()) {
@@ -17,13 +18,14 @@ std::unordered_map<std::string, Colour> readMTL(std::string& filepath) {
 		int g = std::round(std::stof(lineContents[2]) * 255);
 		int b = std::round(std::stof(lineContents[3]) * 255);
 		Colour colour = Colour(r, g, b);
-		result[name] = colour;
+		result[name] = new UniformColourMaterial(colour);
 		std::getline(inputStream, nextLine); // Empty
 	}
+	result["default"] = new UniformColourMaterial(Colour(180, 180, 180));
 	return result;
 }
 
-std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std::string, Colour> palette, float scaleFactor) {
+std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std::string, IMaterial*> materials, float scaleFactor) {
 
 	std::ifstream inputStream(filepath, std::ifstream::binary);
 	std::string nextLine;
@@ -33,11 +35,10 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 	std::vector<glm::vec2> texturePoints = {};
 	std::vector<std::vector<std::array<int, 2>>> vertexToFace = {};
 	std::vector<std::array<int, 3>> faceToVertex = {};
-	std::vector<std::string> faceToColour = {};
+	std::vector<std::string> faceToMaterial = {};
 	std::unordered_map<int, std::array<int, 3>> faceToTexturePoint = {};
 
 	std::string currentColour = "default";
-	palette["default"] = Colour(180, 180, 180);
 
 	while (!inputStream.eof()) {
 
@@ -76,7 +77,7 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 				vertexToFace[vertexIndex].push_back({currentFaceIndex, i - 1});
 			}
 			if (hasTexturePoints) faceToTexturePoint[currentFaceIndex] = texturePointsForFace;
-			faceToColour.push_back(currentColour);
+			faceToMaterial.push_back(currentColour);
 			faceToVertex.push_back(verticesForFace);
 		}
 		else if (lineContents[0] == "usemtl") {
@@ -101,13 +102,13 @@ std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std
 			v2.texturePoint = texturePoints[faceToTexturePoint[i][2]];
 		}
 
-		Colour colour = palette[faceToColour[i]];
+		IMaterial* mat = materials[faceToMaterial[i]];
 
 		glm::vec3 v0toV1 = v1.position - v0.position;
 		glm::vec3 v0toV2 = v2.position - v0.position;
 		glm::vec3 normal = glm::normalize(glm::cross(v0toV1, v0toV2));
 
-		ModelTriangle triangle = ModelTriangle(v0, v1, v2, colour, normal);
+		ModelTriangle triangle = ModelTriangle(v0, v1, v2, mat, normal);
 		result.push_back(triangle);
 	}
 

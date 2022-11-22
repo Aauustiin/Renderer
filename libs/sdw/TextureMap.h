@@ -4,6 +4,8 @@
 #include <fstream>
 #include <stdexcept>
 #include <vector>
+#include <Colour.h>
+#include <glm/vec2.hpp>
 
 class TextureMap {
 public:
@@ -13,5 +15,6 @@ public:
 
 	TextureMap();
 	TextureMap(const std::string &filename);
+	Colour GetValue(glm::vec2 texturePoint);
 	friend std::ostream &operator<<(std::ostream &os, const TextureMap &point);
 };

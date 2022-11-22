@@ -106,9 +106,9 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	RendererState state;
-	state.renderMode = WIREFRAME;
+	state.renderMode = RAYTRACED;
 	state.orbiting = false;
-	state.lightingMode = GOURAUD;
+	state.lightingMode = AMBIENT;
 
 	Camera mainCamera;
 	mainCamera.focalLength = 2;
@@ -117,14 +117,14 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
-	glm::vec3 lightPosition = {0.5, 0.85, 1};
+	glm::vec3 lightPosition = { 0.5, 0.8, 1 };
 
 	std::string mtlFilepath = "cornell-box.mtl";
-	std::unordered_map<std::string, Colour> palette = readMTL(mtlFilepath);
+	std::unordered_map<std::string, IMaterial*> materials = readMTL(mtlFilepath);
 	std::string cornellObjFilepath = "cornell-box.obj";
-	std::vector<ModelTriangle> cornellBox = readOBJ(cornellObjFilepath, palette, 0.35);
+	std::vector<ModelTriangle> cornellBox = readOBJ(cornellObjFilepath, materials, 0.35);
 	std::string sphereObjFilepath = "sphere.obj";
-	std::vector<ModelTriangle> sphere = readOBJ(sphereObjFilepath, palette, 0.75);
+	std::vector<ModelTriangle> sphere = readOBJ(sphereObjFilepath, materials, 0.75);
 	glm::vec3 sphereCenter = getCenter(sphere);
 	for (int i = 0; i < sphere.size(); i++) {
 		for (int j = 0; j < 3; j++) {
@@ -132,7 +132,8 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	std::vector<ModelTriangle> currentModel = sphere;
+	std::vector<ModelTriangle> currentModel = cornellBox;
+
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera, &state);
@@ -162,6 +163,8 @@ int main(int argc, char* argv[]) {
 			mainCamera.position = rotateAbout(mainCamera.position, glm::vec3(0, 0, 0), glm::vec3(0, -CAMERA_MOVE_SPEED / 10, 0));
 			mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
 		}
-
+	}
+	for (auto& mat : materials) {
+		free(mat.second);
 	}
 }
