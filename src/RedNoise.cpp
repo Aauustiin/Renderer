@@ -119,7 +119,18 @@ int main(int argc, char* argv[]) {
 		0, 1, 0,
 		0, 0, 1);
 
-	glm::vec3 lightPosition = { 0.5, 0.8, 1 };
+	glm::vec3 lightCenter = { 0.5, 0.8, 1 };
+	float lightRadius = 0.5;
+	std::vector<glm::vec3> lights = {lightCenter};
+	int numLights = 1;
+	for (int i = 0; i < numLights - 1; i++) {
+		float v0 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+		float v1 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+		float v2 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+		glm::vec3 lightPos = lightCenter + (lightRadius * glm::normalize(glm::vec3(v0, v1, v2)));
+		lights.push_back(lightPos);
+	}
+	
 
 	std::vector<std::string> textureFileNames = {"texture.ppm"};
 	std::vector<std::string> materialFileNames = {"textured-cornell-box.mtl"};
@@ -156,7 +167,7 @@ int main(int argc, char* argv[]) {
 				rasterisedRender(currentModel, window, mainCamera);
 				break;
 			case RAYTRACED:
-				rayTracedRender(currentModel, lightPosition, window, mainCamera, state.lightingMode);
+				rayTracedRender(currentModel, lights, window, mainCamera, state.lightingMode);
 				break;
 		}
 		

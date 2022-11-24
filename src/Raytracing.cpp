@@ -82,42 +82,47 @@ float interpolateBrightness(RayTriangleIntersection intersection) {
 
 float hardShadowLighting(RayTriangleIntersection intersection,
 	std::vector<ModelTriangle> model,
-	glm::vec3 light) {
+	std::vector<glm::vec3> lights) {
 
-	glm::vec3 pointToLight = light - intersection.intersectionPoint;
-	RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
-		glm::normalize(pointToLight),
-		model,
-		intersection.triangleIndex);
+	std::cout << "I'm doing something" << '\n';
+	float brightness = 0;
+	float brightnessPerLight = 1.0f / lights.size();
+	for (int i = 0; i < lights.size(); i++) {
+		glm::vec3 pointToLight = lights[i] - intersection.intersectionPoint;
+		RayTriangleIntersection lightIntersection = getClosestIntersection(intersection.intersectionPoint,
+			glm::normalize(pointToLight),
+			model,
+			intersection.triangleIndex);
 
-	float intensity = lightIntersection.distance < glm::length(pointToLight) ? 0 : 1;
-	return intensity;
+		brightness += lightIntersection.distance < glm::length(pointToLight) ? 0 : brightnessPerLight;
+	}
+	return brightness;
 }
 
 float vertexHardShadowLighting(RayTriangleIntersection intersection,
 	std::vector<ModelTriangle> model,
-	glm::vec3 light) {
+	std::vector<glm::vec3> lights) {
 
 	glm::vec3 v0 = intersection.intersectedTriangle.vertices[0].position;
 	glm::vec3 v1 = intersection.intersectedTriangle.vertices[1].position;
 	glm::vec3 v2 = intersection.intersectedTriangle.vertices[2].position;
 
-	RayTriangleIntersection v0LightIntersection = getClosestIntersection(v0,
-		glm::normalize(light - v0),
+	RayTriangleIntersection v0Intersection = getClosestIntersection(v0,
+		glm::vec3(0,0,0),
 		model,
 		intersection.triangleIndex);
-	RayTriangleIntersection v1LightIntersection = getClosestIntersection(v0,
-		glm::normalize(light - v0),
+	RayTriangleIntersection v1Intersection = getClosestIntersection(v1,
+		glm::vec3(0,0,0),
 		model,
 		intersection.triangleIndex);
-	RayTriangleIntersection v2LightIntersection = getClosestIntersection(v0,
-		glm::normalize(light - v0),
+	RayTriangleIntersection v2Intersection = getClosestIntersection(v2,
+		glm::vec3(0,0,0),
 		model,
 		intersection.triangleIndex);
 
-	intersection.intersectedTriangle.vertices[0].brightness = hardShadowLighting(v0LightIntersection, model, light);
-	intersection.intersectedTriangle.vertices[1].brightness = hardShadowLighting(v0LightIntersection, model, light);
-	intersection.intersectedTriangle.vertices[2].brightness = hardShadowLighting(v0LightIntersection, model, light);
+	intersection.intersectedTriangle.vertices[0].brightness = hardShadowLighting(v0Intersection, model, lights);
+	intersection.intersectedTriangle.vertices[1].brightness = hardShadowLighting(v1Intersection, model, lights);
+	intersection.intersectedTriangle.vertices[2].brightness = hardShadowLighting(v2Intersection, model, lights);
 
 	return interpolateBrightness(intersection);
 }
@@ -196,12 +201,15 @@ glm::vec3 phongLighting(RayTriangleIntersection intersection) {
 }
 
 void rayTracedRender(std::vector<ModelTriangle> model,
-	glm::vec3 light,
+	std::vector<glm::vec3> lights,
 	DrawingWindow& window,
 	Camera cam,
 	LightingMode lightingMode) {
 
-	light = cam.orientation * (light - cam.position);
+	for (int i = 0; i < lights.size(); i++) {
+		lights[i] = cam.orientation * (lights[i] - cam.position);
+	}
+	glm::vec3 light = lights[0];
 
 	for (int i = 0; i < model.size(); i++) {
 		for (int j = 0; j < 3; j++) {
@@ -239,7 +247,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 			else {
 				switch (lightingMode) {
 				case HARD:
-					intensity = hardShadowLighting(intersection, model, light);
+					intensity = hardShadowLighting(intersection, model, lights);
 					break;
 				case PROXIMITY:
 					intensity = proximityLighting(intersection, light);
@@ -259,7 +267,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 					intensity *= incidenceLighting(intersection, light);
 					intensity += specularLighting(intersection, light);
 					intensity = glm::min(intensity, 1.0f);
-					intensity *= hardShadowLighting(intersection, model, light);
+					intensity *= hardShadowLighting(intersection, model, lights);
 					intensity = ambientLighting(intensity);
 					break;
 				case GOURAUD:
@@ -276,7 +284,7 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 					intensity *= incidenceLighting(intersection, light, normal);
 					intensity += specularLighting(intersection, light, 256, normal);
 					intensity = glm::min(intensity, 1.0f);
-					intensity *= vertexHardShadowLighting(intersection, model, light);
+					intensity *= vertexHardShadowLighting(intersection, model, lights);
 					intensity = ambientLighting(intensity);
 					break;
 				}

@@ -7,7 +7,7 @@
 #include <Objects.h>
 
 void rayTracedRender(std::vector<ModelTriangle> model,
-	glm::vec3 light,
+	std::vector<glm::vec3> light,
 	DrawingWindow& window,
 	Camera cam,
 	LightingMode lightingMode);
