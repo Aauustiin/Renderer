@@ -191,6 +191,6 @@ void rasterisedRender(std::vector<ModelTriangle> model, DrawingWindow& window, C
 		CanvasPoint vb = getCanvasIntersectionPoint(model[i].vertices[1].position, window, cam);
 		CanvasPoint vc = getCanvasIntersectionPoint(model[i].vertices[2].position, window, cam);
 		CanvasTriangle triangle = CanvasTriangle(va, vb, vc);
-		drawFilledTriangle(triangle, model[i].GetColour(glm::vec3(0,0,0)), window);
+		drawFilledTriangle(triangle, model[i].GetColour(model, {}, cam, HARD, 0, glm::vec3(0,0,0)), window);
 	}
 }

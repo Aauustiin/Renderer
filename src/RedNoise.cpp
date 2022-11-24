@@ -13,6 +13,7 @@
 #include <Utilities.h>
 #include <Parsing.h>
 #include <Raytracing.h>
+#include <MirrorMaterial.h>
 
 // GLM
 #include <glm/glm.hpp>
@@ -149,6 +150,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::vector<ModelTriangle> currentModel = models["textured-cornell-box.obj"];
+	currentModel[2].material = new MirrorMaterial();
+	currentModel[3].material = new MirrorMaterial();
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera, &state);
@@ -179,6 +182,8 @@ int main(int argc, char* argv[]) {
 			mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
 		}
 	}
+	free(currentModel[2].material);
+	free(currentModel[3].material);
 	for (auto& mat : materials) {
 		free(mat.second);
 	}

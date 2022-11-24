@@ -35,7 +35,7 @@ RayTriangleIntersection getIntersection(glm::vec3 startPosition, glm::vec3 direc
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPosition,
 	glm::vec3 direction,
 	std::vector<ModelTriangle> targets,
-	int indexBlacklist = std::numeric_limits<int>::max()) {
+	int indexBlacklist) {
 
 	RayTriangleIntersection result = RayTriangleIntersection(glm::vec3(0, 0, 0),
 		std::numeric_limits<float>::max(),
@@ -84,7 +84,6 @@ float hardShadowLighting(RayTriangleIntersection intersection,
 	std::vector<ModelTriangle> model,
 	std::vector<glm::vec3> lights) {
 
-	std::cout << "I'm doing something" << '\n';
 	float brightness = 0;
 	float brightnessPerLight = 1.0f / lights.size();
 	for (int i = 0; i < lights.size(); i++) {
@@ -154,7 +153,7 @@ float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, in
 	return reflectionSimilarity;
 }
 
-float ambientLighting(float currentIntensity, float addition = 0.2) {
+float ambientLighting(float currentIntensity, float addition = 0.1) {
 	return std::min(currentIntensity + addition, 1.0f);
 }
 
@@ -200,6 +199,63 @@ glm::vec3 phongLighting(RayTriangleIntersection intersection) {
 	return normal;
 }
 
+float calculateBrightness(RayTriangleIntersection intersection,
+	LightingMode lightingMode,
+	std::vector<ModelTriangle> model,
+	std::vector<glm::vec3> lights) {
+	float intensity = 1;
+	glm::vec3 light = lights[0];
+	if (intersection.distance == std::numeric_limits<float>::max())
+		intensity = 0;
+	else {
+		switch (lightingMode) {
+		case HARD:
+			intensity = hardShadowLighting(intersection, model, lights);
+			break;
+		case PROXIMITY:
+			intensity = proximityLighting(intersection, light);
+			break;
+		case INCIDENCE:
+			intensity = proximityLighting(intersection, light);
+			intensity *= incidenceLighting(intersection, light);
+			break;
+		case SPECULAR:
+			intensity = proximityLighting(intersection, light);
+			intensity *= incidenceLighting(intersection, light);
+			intensity += specularLighting(intersection, light);
+			intensity = glm::min(intensity, 1.0f);
+			break;
+		case AMBIENT:
+			intensity = proximityLighting(intersection, light);
+			intensity *= incidenceLighting(intersection, light);
+			intensity += specularLighting(intersection, light);
+			intensity = glm::min(intensity, 1.0f);
+			intensity *= hardShadowLighting(intersection, model, lights);
+			intensity = ambientLighting(intensity);
+			break;
+		case GOURAUD:
+		{
+			intensity = interpolateBrightness(intersection);
+			//intensity *= vertexHardShadowLighting(intersection, model, light);
+			//intensity = ambientLighting(intensity);
+			break;
+		}
+		case PHONG:
+		{
+			glm::vec3 normal = phongLighting(intersection);
+			intensity = proximityLighting(intersection, light);
+			intensity *= incidenceLighting(intersection, light, normal);
+			intensity += specularLighting(intersection, light, 256, normal);
+			intensity = glm::min(intensity, 1.0f);
+			intensity *= vertexHardShadowLighting(intersection, model, lights);
+			intensity = ambientLighting(intensity);
+			break;
+		}
+		}
+	}
+	return intensity;
+}
+
 void rayTracedRender(std::vector<ModelTriangle> model,
 	std::vector<glm::vec3> lights,
 	DrawingWindow& window,
@@ -242,61 +298,16 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 			RayTriangleIntersection intersection = getClosestIntersection(glm::vec3(0, 0, 0), direction, model);
 
 			float intensity = 1;
-			if (intersection.distance == std::numeric_limits<float>::max())
-				intensity = 0;
-			else {
-				switch (lightingMode) {
-				case HARD:
-					intensity = hardShadowLighting(intersection, model, lights);
-					break;
-				case PROXIMITY:
-					intensity = proximityLighting(intersection, light);
-					break;
-				case INCIDENCE:
-					intensity = proximityLighting(intersection, light);
-					intensity *= incidenceLighting(intersection, light);
-					break;
-				case SPECULAR:
-					intensity = proximityLighting(intersection, light);
-					intensity *= incidenceLighting(intersection, light);
-					intensity += specularLighting(intersection, light);
-					intensity = glm::min(intensity, 1.0f);
-					break;
-				case AMBIENT:
-					intensity = proximityLighting(intersection, light);
-					intensity *= incidenceLighting(intersection, light);
-					intensity += specularLighting(intersection, light);
-					intensity = glm::min(intensity, 1.0f);
-					intensity *= hardShadowLighting(intersection, model, lights);
-					intensity = ambientLighting(intensity);
-					break;
-				case GOURAUD:
-				{
-					intensity = interpolateBrightness(intersection);
-					//intensity *= vertexHardShadowLighting(intersection, model, light);
-					//intensity = ambientLighting(intensity);
-					break;
-				}
-				case PHONG:
-				{
-					glm::vec3 normal = phongLighting(intersection);
-					intensity = proximityLighting(intersection, light);
-					intensity *= incidenceLighting(intersection, light, normal);
-					intensity += specularLighting(intersection, light, 256, normal);
-					intensity = glm::min(intensity, 1.0f);
-					intensity *= vertexHardShadowLighting(intersection, model, lights);
-					intensity = ambientLighting(intensity);
-					break;
-				}
-				}
-			}
+			if (intersection.intersectedTriangle.material->recievesShadow)
+				intensity = calculateBrightness(intersection, lightingMode, model, lights);
 
 			Colour colour;
 			if (intersection.distance == std::numeric_limits<float>::max()) {
 				colour = Colour(0, 0, 0);
 			}
 			else {
-				colour = intersection.intersectedTriangle.GetColour(intersection.intersectionPoint);
+				colour = intersection.intersectedTriangle.GetColour(model, lights, cam, lightingMode,
+					intersection.triangleIndex, intersection.intersectionPoint);
 				colour.red *= intensity;
 				colour.blue *= intensity;
 				colour.green *= intensity;

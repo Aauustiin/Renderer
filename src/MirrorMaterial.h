@@ -1,13 +1,11 @@
 #pragma once
 
 #include <IMaterial.h>
-#include <TextureMap.h>
 
-class TextureMaterial : public IMaterial {
+class MirrorMaterial : public IMaterial {
 public:
-	TextureMap texture;
-	TextureMaterial(TextureMap texture);
-	virtual ~TextureMaterial();
+	MirrorMaterial();
+	virtual ~MirrorMaterial();
 	virtual Colour GetColour(std::vector<ModelTriangle> model,
 		std::vector<glm::vec3> lights,
 		Camera cam,

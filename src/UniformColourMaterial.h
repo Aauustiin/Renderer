@@ -7,5 +7,9 @@ class UniformColourMaterial : public IMaterial {
 		Colour colour;
 		UniformColourMaterial(Colour colour);
 		virtual ~UniformColourMaterial();
-		virtual Colour GetColour(ModelTriangle triangle, glm::vec3 point);
+		virtual Colour GetColour(std::vector<ModelTriangle> model,
+			std::vector<glm::vec3> lights,
+			Camera cam,
+			LightingMode lightingMode,
+			int triangleIndex, glm::vec3 point);
 };
