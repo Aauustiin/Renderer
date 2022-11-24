@@ -11,8 +11,8 @@ Colour TextureMaterial::GetColour(ModelTriangle triangle, glm::vec3 point) {
 		triangle.vertices[1].position,
 		triangle.vertices[2].position,
 		triangle.vertices[0].texturePoint,
-		triangle.vertices[0].texturePoint,
-		triangle.vertices[0].texturePoint,
+		triangle.vertices[1].texturePoint,
+		triangle.vertices[2].texturePoint,
 		point);
 	return texture.GetValue(texturePoint);
 }

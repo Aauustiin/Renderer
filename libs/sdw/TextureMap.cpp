@@ -32,8 +32,9 @@ TextureMap::TextureMap(const std::string &filename) {
 
 Colour TextureMap::GetValue(glm::vec2 texturePoint) {
 	int x = (int)std::round(texturePoint.x * width) % width;
-	int y = (int)std::round(texturePoint.x * height) % height;
-	return Colour(pixels[x + width * y]);
+	int y = (int)std::round(texturePoint.y * height) % height;
+	uint32_t packedColour = pixels[(y * width) + x];
+	return Colour(packedColour);
 }
 
 std::ostream &operator<<(std::ostream &os, const TextureMap &map) {

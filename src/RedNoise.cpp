@@ -19,6 +19,8 @@
 
 #define WIDTH 320
 #define HEIGHT 240
+//#define WIDTH 480
+//#define HEIGHT 395
 #define IMAGE_PLANE_SCALE 180
 #define CAMERA_MOVE_SPEED 0.15
 #define CAMERA_ROTATE_SPEED 0.01
@@ -119,21 +121,23 @@ int main(int argc, char* argv[]) {
 
 	glm::vec3 lightPosition = { 0.5, 0.8, 1 };
 
-	std::string mtlFilepath = "cornell-box.mtl";
-	std::unordered_map<std::string, IMaterial*> materials = readMTL(mtlFilepath);
-	std::string cornellObjFilepath = "cornell-box.obj";
-	std::vector<ModelTriangle> cornellBox = readOBJ(cornellObjFilepath, materials, 0.35);
-	std::string sphereObjFilepath = "sphere.obj";
-	std::vector<ModelTriangle> sphere = readOBJ(sphereObjFilepath, materials, 0.75);
-	glm::vec3 sphereCenter = getCenter(sphere);
-	for (int i = 0; i < sphere.size(); i++) {
+	std::vector<std::string> textureFileNames = {"texture.ppm"};
+	std::vector<std::string> materialFileNames = {"textured-cornell-box.mtl"};
+	std::vector<std::string> modelFileNames = {"textured-cornell-box.obj", "sphere.obj"};
+
+	std::unordered_map<std::string, TextureMap*> textures = loadTextures(textureFileNames);
+	std::unordered_map<std::string, IMaterial*> materials = loadMaterials(materialFileNames, textures);
+	std::unordered_map<std::string, std::vector<ModelTriangle>> models = loadModels(modelFileNames,
+		materials, {0.35, 0.75});
+
+	glm::vec3 sphereCenter = getCenter(models["sphere.obj"]);
+	for (int i = 0; i < models["sphere.obj"].size(); i++) {
 		for (int j = 0; j < 3; j++) {
-			sphere[i].vertices[j].position.y -= sphereCenter.y;
+			models["sphere.obj"][i].vertices[j].position.y -= sphereCenter.y;
 		}
 	}
 
-	std::vector<ModelTriangle> currentModel = cornellBox;
-
+	std::vector<ModelTriangle> currentModel = models["textured-cornell-box.obj"];
 
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera, &state);
@@ -155,7 +159,7 @@ int main(int argc, char* argv[]) {
 				rayTracedRender(currentModel, lightPosition, window, mainCamera, state.lightingMode);
 				break;
 		}
-
+		
 		window.renderFrame();
 		// }
 
@@ -166,5 +170,8 @@ int main(int argc, char* argv[]) {
 	}
 	for (auto& mat : materials) {
 		free(mat.second);
+	}
+	for (auto& tex : textures) {
+		free(tex.second);
 	}
 }

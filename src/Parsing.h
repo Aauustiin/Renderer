@@ -4,6 +4,12 @@
 #include <Colour.h>
 #include <ModelTriangle.h>
 #include <IMaterial.h>
+#include <TextureMap.h>
 
-std::unordered_map<std::string, IMaterial*> readMTL(std::string& filepath);
-std::vector<ModelTriangle> readOBJ(std::string& filepath, std::unordered_map<std::string, IMaterial*> materials, float scaleFactor = 1);
+std::unordered_map<std::string, IMaterial*> loadMaterials(std::vector<std::string> fileNames,
+	std::unordered_map<std::string, TextureMap*> textures);
+
+std::unordered_map<std::string, std::vector<ModelTriangle>> loadModels(std::vector<std::string> fileNames,
+	std::unordered_map<std::string, IMaterial*> materials, std::vector<float> scaleFactors);
+
+std::unordered_map<std::string, TextureMap*> loadTextures(std::vector<std::string> textureNames);

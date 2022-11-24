@@ -4,13 +4,13 @@
 Colour::Colour() = default;
 Colour::Colour(int r, int g, int b) : red(r), green(g), blue(b) {}
 Colour::Colour(uint32_t packedColour) {
-	uint32_t redMask = 0xFF000000;
-	uint32_t greenMask = 0xFF0000;
-	uint32_t blueMask = 0xFF00;
+	uint32_t redMask = 0x00FF0000;
+	uint32_t greenMask = 0x0000FF00;
+	uint32_t blueMask = 0x000000FF;
 
-	int red = (packedColour & redMask) >> 24;
-	int green = (packedColour & greenMask) >> 16;
-	int blue = (packedColour & blueMask) >> 8;
+	int red = (packedColour & redMask) >> 16;
+	int green = (packedColour & greenMask) >> 8;
+	int blue = (packedColour & blueMask);
 
 	(*this).red = red;
 	(*this).green = green;
