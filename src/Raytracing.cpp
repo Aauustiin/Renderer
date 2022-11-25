@@ -270,7 +270,9 @@ void rayTracedRender(std::vector<ModelTriangle> model,
 	for (int i = 0; i < model.size(); i++) {
 		for (int j = 0; j < 3; j++) {
 			model[i].vertices[j].position = cam.orientation * (model[i].vertices[j].position - cam.position);
+			model[i].vertices[j].normal = cam.orientation * model[i].vertices[j].normal;
 		}
+		model[i].normal = cam.orientation * model[i].normal;
 	}
 
 	if (lightingMode == GOURAUD) {

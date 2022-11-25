@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	RendererState state;
-	state.renderMode = RAYTRACED;
+	state.renderMode = WIREFRAME;
 	state.orbiting = false;
 	state.lightingMode = AMBIENT;
 
@@ -150,9 +150,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::vector<ModelTriangle> currentModel = models["textured-cornell-box.obj"];
-	currentModel[2].material = new MirrorMaterial();
-	currentModel[3].material = new MirrorMaterial();
-
+	currentModel[8].material = new MirrorMaterial();
+	currentModel[9].material = new MirrorMaterial();
+	
 	while (true) {
 		if (window.pollForInputEvents(event)) handleEvent(event, window, &mainCamera, &state);
 
@@ -182,8 +182,8 @@ int main(int argc, char* argv[]) {
 			mainCamera.orientation = lookAt(mainCamera.orientation, mainCamera.position, glm::vec3(0, 0, 0));
 		}
 	}
-	free(currentModel[2].material);
-	free(currentModel[3].material);
+	free(currentModel[8].material);
+	free(currentModel[9].material);
 	for (auto& mat : materials) {
 		free(mat.second);
 	}
