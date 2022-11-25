@@ -23,7 +23,9 @@ Colour MirrorMaterial::GetColour(std::vector<ModelTriangle> model,
 	Colour colour = Colour(0, 0, 0);
 	if ((intersection.distance < std::numeric_limits<float>::max()) && (intersection.intersectedTriangle.material->recievesShadow)) {
 		float brightness = calculateBrightness(intersection, lightingMode, model, lights);
-		colour = intersection.intersectedTriangle.GetColour(model, lights, cam, lightingMode, triangleIndex, point);
+		colour = intersection.intersectedTriangle.GetColour(model, lights, cam, lightingMode,
+			intersection.triangleIndex,
+			intersection.intersectionPoint);
 		colour.red *= brightness;
 		colour.green *= brightness;
 		colour.blue *= brightness;
