@@ -153,7 +153,7 @@ float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, in
 	return reflectionSimilarity;
 }
 
-float ambientLighting(float currentIntensity, float addition = 0.1) {
+float ambientLighting(float currentIntensity, float addition = 0.2) {
 	return std::min(currentIntensity + addition, 1.0f);
 }
 
@@ -226,16 +226,31 @@ float calculateBrightness(RayTriangleIntersection intersection,
 			intensity = glm::min(intensity, 1.0f);
 			break;
 		case AMBIENT:
-			intensity = proximityLighting(intersection, light);
-			intensity *= incidenceLighting(intersection, light);
-			intensity += specularLighting(intersection, light);
-			intensity = glm::min(intensity, 1.0f);
-			intensity *= hardShadowLighting(intersection, model, lights);
-			intensity = ambientLighting(intensity);
+		{
+			intensity = 0;
+			// Pick half the points at random and use those!
+			std::vector<int> samples = {};
+			int numSamples = std::round((lights.size() + 1) / 2);
+			for (int i = 0; i < std::round(numSamples); i++) {
+				int randomIndex = rand() % lights.size();
+				samples.push_back(randomIndex);
+			}
+			for (int s : samples) {
+				float a;
+				a = proximityLighting(intersection, lights[s]);
+				a *= incidenceLighting(intersection, lights[s]);
+				a += specularLighting(intersection, lights[s]);
+				a = glm::min(a, 1.0f);
+				a *= hardShadowLighting(intersection, model, { lights[s] });
+				a = ambientLighting(a);
+				intensity += a;
+			}
+			intensity /= numSamples;
 			break;
+		}
 		case GOURAUD:
 		{
-			intensity = interpolateBrightness(intersection);
+			//intensity = interpolateBrightness(intersection);
 			//intensity *= vertexHardShadowLighting(intersection, model, light);
 			//intensity = ambientLighting(intensity);
 			break;

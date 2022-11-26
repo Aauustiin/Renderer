@@ -20,8 +20,6 @@
 
 #define WIDTH 320
 #define HEIGHT 240
-//#define WIDTH 480
-//#define HEIGHT 395
 #define IMAGE_PLANE_SCALE 180
 #define CAMERA_MOVE_SPEED 0.15
 #define CAMERA_ROTATE_SPEED 0.01
@@ -109,7 +107,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	RendererState state;
-	state.renderMode = WIREFRAME;
+	state.renderMode = RASTERISED;
 	state.orbiting = false;
 	state.lightingMode = AMBIENT;
 
@@ -121,9 +119,9 @@ int main(int argc, char* argv[]) {
 		0, 0, 1);
 
 	glm::vec3 lightCenter = { 0.5, 0.8, 1 };
-	float lightRadius = 0.5;
+	float lightRadius = 0.25;
 	std::vector<glm::vec3> lights = {lightCenter};
-	int numLights = 1;
+	int numLights = 40;
 	for (int i = 0; i < numLights - 1; i++) {
 		float v0 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 		float v1 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
@@ -132,7 +130,6 @@ int main(int argc, char* argv[]) {
 		lights.push_back(lightPos);
 	}
 	
-
 	std::vector<std::string> textureFileNames = {"texture.ppm"};
 	std::vector<std::string> materialFileNames = {"textured-cornell-box.mtl"};
 	std::vector<std::string> modelFileNames = {"textured-cornell-box.obj", "sphere.obj"};

@@ -48,7 +48,7 @@ add_executable(RedNoise
         "src/IMaterial.h"
         "src/UniformColourMaterial.h"
         "src/UniformColourMaterial.cpp"
-        "src/IMaterial.cpp" "src/TextureMaterial.h" "src/TextureMaterial.cpp" "src/MirrorMaterial.h" "src/MirrorMaterial.cpp")
+        "src/IMaterial.cpp" "src/TextureMaterial.h" "src/TextureMaterial.cpp" "src/MirrorMaterial.h" "src/MirrorMaterial.cpp" "src/RefractiveMaterial.h" "src/RefractiveMaterial.cpp")
 
 if (MSVC)
     target_compile_options(RedNoise
