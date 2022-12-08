@@ -17,7 +17,7 @@ Colour MirrorMaterial::GetColour(std::vector<ModelTriangle> model,
 	glm::vec3 normal = model[triangleIndex].normal;
 	glm::vec3 unitCameraToPoint = glm::normalize(point);
 	// Rr = Ri - 2N(Ri . N)
-	glm::vec3 reflection = unitCameraToPoint - (2.0f * normal * glm::dot(unitCameraToPoint, normal));
+	glm::vec3 reflection = glm::normalize(unitCameraToPoint - (2.0f * normal * glm::dot(unitCameraToPoint, normal)));
 	RayTriangleIntersection intersection = getClosestIntersection(point, glm::normalize(reflection), model, triangleIndex);
 	intersection.intersectionPoint += point;
 	Colour colour = Colour(0, 0, 0);
@@ -26,6 +26,10 @@ Colour MirrorMaterial::GetColour(std::vector<ModelTriangle> model,
 		colour = intersection.intersectedTriangle.GetColour(model, lights, cam, lightingMode,
 			intersection.triangleIndex,
 			intersection.intersectionPoint);
+		colour.red *= 0.9;
+		colour.green *= 0.9;
+		colour.blue *= 0.9;
+		colour.blue += 0.1 * 255;
 		colour.red *= brightness;
 		colour.green *= brightness;
 		colour.blue *= brightness;

@@ -47,7 +47,7 @@ std::unordered_map<std::string, IMaterial*> loadMaterials(std::vector<std::strin
 			}
 		}
 	}
-	result["default"] = new UniformColourMaterial(Colour(180, 180, 180));
+	result["default"] = new UniformColourMaterial(Colour(50, 200, 50));
 	return result;
 }
 
@@ -157,6 +157,7 @@ std::unordered_map<std::string, std::vector<ModelTriangle>> loadModels(std::vect
 				normal += model[faceIndex].normal;
 			}
 			normal /= numFaces;
+			normal = glm::normalize(normal);
 			for (int j = 0; j < numFaces; j++) {
 				int faceIndex = vertexToFace[i][j][0];
 				int vertexInFaceIndex = vertexToFace[i][j][1];

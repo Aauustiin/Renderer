@@ -144,11 +144,14 @@ float specularLighting(RayTriangleIntersection intersection, glm::vec3 light, in
 	glm::vec3 normal = { 0, 0, 0 }) {
 
 	if (normal == glm::vec3(0, 0, 0)) normal = intersection.intersectedTriangle.normal;
-	glm::vec3 unitLightToPoint = -glm::normalize(light - intersection.intersectionPoint);
-	glm::vec3 reflection = unitLightToPoint - (2.0f * normal * glm::dot(unitLightToPoint, normal));
 
-	float reflectionSimilarity = -glm::dot(glm::normalize(reflection), glm::normalize(intersection.intersectionPoint));
-	reflectionSimilarity = reflectionSimilarity < 0 ? 0 : reflectionSimilarity;
+
+	glm::vec3 unitLightToPoint = glm::normalize(intersection.intersectionPoint - light);
+	glm::vec3 unitCameraToPoint = glm::normalize(intersection.intersectionPoint);
+	glm::vec3 unitReflection = glm::normalize(unitLightToPoint - (2.0f * normal * glm::dot(unitLightToPoint, normal)));
+
+	float reflectionSimilarity = glm::dot(unitReflection, unitCameraToPoint);
+	reflectionSimilarity = std::min(reflectionSimilarity, 0.0f);
 	reflectionSimilarity = std::pow(reflectionSimilarity, specularExponent);
 	return reflectionSimilarity;
 }
@@ -203,6 +206,7 @@ float calculateBrightness(RayTriangleIntersection intersection,
 	LightingMode lightingMode,
 	std::vector<ModelTriangle> model,
 	std::vector<glm::vec3> lights) {
+	if ((intersection.triangleIndex > 31) && (lightingMode == AMBIENT)) lightingMode = PHONG;
 	float intensity = 1;
 	glm::vec3 light = lights[0];
 	if (intersection.distance == std::numeric_limits<float>::max())
@@ -210,7 +214,8 @@ float calculateBrightness(RayTriangleIntersection intersection,
 	else {
 		switch (lightingMode) {
 		case HARD:
-			intensity = hardShadowLighting(intersection, model, lights);
+			//intensity = hardShadowLighting(intersection, model, {light});
+			intensity = 1;
 			break;
 		case PROXIMITY:
 			intensity = proximityLighting(intersection, light);
@@ -220,39 +225,45 @@ float calculateBrightness(RayTriangleIntersection intersection,
 			intensity *= incidenceLighting(intersection, light);
 			break;
 		case SPECULAR:
+		{
 			intensity = proximityLighting(intersection, light);
 			intensity *= incidenceLighting(intersection, light);
-			intensity += specularLighting(intersection, light);
+			float spec = specularLighting(intersection, light);
+			if (spec > 0.1) std::cout << "Specular: " << spec << '\n';
+			intensity += spec;
 			intensity = glm::min(intensity, 1.0f);
 			break;
+		}
 		case AMBIENT:
 		{
-			intensity = 0;
-			// Pick half the points at random and use those!
-			std::vector<int> samples = {};
-			int numSamples = std::round((lights.size() + 1) / 2);
-			for (int i = 0; i < std::round(numSamples); i++) {
-				int randomIndex = rand() % lights.size();
-				samples.push_back(randomIndex);
+			glm::vec3 lightCenter = light;
+			intensity = proximityLighting(intersection, lightCenter);
+			intensity *= incidenceLighting(intersection, lightCenter);
+			intensity += specularLighting(intersection, lightCenter);
+			intensity = glm::min(intensity, 1.0f);
+
+			int numLights = 10;
+			float lightRadius = 0.5;
+			float shadowIntensity = 0;
+			for (int i = 0; i < numLights; i++) {
+				float v0 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				float v1 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				float v2 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				glm::vec3 lightPos = lightCenter + (lightRadius * glm::normalize(glm::vec3(v0, v1, v2)));
+				shadowIntensity += hardShadowLighting(intersection, model, { lightPos });
 			}
-			for (int s : samples) {
-				float a;
-				a = proximityLighting(intersection, lights[s]);
-				a *= incidenceLighting(intersection, lights[s]);
-				a += specularLighting(intersection, lights[s]);
-				a = glm::min(a, 1.0f);
-				a *= hardShadowLighting(intersection, model, { lights[s] });
-				a = ambientLighting(a);
-				intensity += a;
-			}
-			intensity /= numSamples;
+			shadowIntensity /= numLights;
+
+			intensity *= shadowIntensity;
+			intensity = ambientLighting(intensity);
+
 			break;
 		}
 		case GOURAUD:
 		{
-			//intensity = interpolateBrightness(intersection);
-			//intensity *= vertexHardShadowLighting(intersection, model, light);
-			//intensity = ambientLighting(intensity);
+			intensity = interpolateBrightness(intersection);
+			intensity *= vertexHardShadowLighting(intersection, model, lights);
+			intensity = ambientLighting(intensity);
 			break;
 		}
 		case PHONG:
